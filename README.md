@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/branding/rtsas.png" width="560" alt="RTSAS logo">
+  <img src="assets/branding/rtsas-logo.png" width="560" alt="RTSAS logo">
 </p>
 
 <h1 align="center">RTSAS</h1>
