@@ -35,6 +35,7 @@ public partial class RemoteAnalyticsDialog : Form
     private async void RemoteAnalyticsDialog_Load(object? sender, EventArgs e)
     {
         bool isDark = BackColor.R < 100;
+        tabCharts.IsDarkMode = isDark;
         chartListeners.IsDarkMode = isDark;
         chartData.IsDarkMode = isDark;
         chartLatency.IsDarkMode = isDark;

@@ -41,6 +41,7 @@ public partial class StreamAnalyticsDialog : Form
     private void StreamAnalyticsDialog_Load(object? sender, EventArgs e)
     {
         bool isDark = BackColor.R < 100;
+        tabCharts.IsDarkMode = isDark;
         chartListeners.IsDarkMode = isDark;
         chartData.IsDarkMode = isDark;
         chartLatency.IsDarkMode = isDark;

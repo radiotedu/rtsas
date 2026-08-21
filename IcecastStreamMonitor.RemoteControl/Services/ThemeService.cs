@@ -139,6 +139,19 @@ public static class ThemeService
                     ApplyToControls(p.Controls, isDark);
                     break;
 
+                case DarkTabControl dtc:
+                    dtc.IsDarkMode = isDark;
+                    dtc.BackColor = isDark ? DarkBg : LightBg;
+                    dtc.ForeColor = isDark ? DarkText : LightText;
+                    dtc.Invalidate();
+                    foreach (TabPage tp in dtc.TabPages)
+                    {
+                        tp.BackColor = isDark ? DarkBg : LightBg;
+                        tp.ForeColor = isDark ? DarkText : LightText;
+                        ApplyToControls(tp.Controls, isDark);
+                    }
+                    break;
+
                 case TabControl tc:
                     tc.BackColor = isDark ? DarkBg : LightBg;
                     tc.ForeColor = isDark ? DarkText : LightText;

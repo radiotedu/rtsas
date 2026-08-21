@@ -5,6 +5,8 @@ namespace IcecastStreamMonitor.Controls;
 
 public class DarkTabControl : TabControl
 {
+    private bool _isDarkMode = false;
+
     public DarkTabControl()
     {
         SetStyle(
@@ -20,13 +22,31 @@ public class DarkTabControl : TabControl
         Font = new Font("Segoe UI", 9F, FontStyle.Regular);
     }
 
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set
+        {
+            _isDarkMode = value;
+            BackColor = _isDarkMode ? Color.FromArgb(24, 24, 27) : Color.FromArgb(245, 246, 250);
+            Invalidate();
+        }
+    }
+
+    protected override void OnSelectedIndexChanged(EventArgs e)
+    {
+        base.OnSelectedIndexChanged(e);
+        Invalidate();
+    }
+
     protected override void OnPaint(PaintEventArgs e)
     {
         var g = e.Graphics;
         g.SmoothingMode = SmoothingMode.AntiAlias;
         g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
 
-        bool isDark = BackColor.R < 100;
+        bool isDark = _isDarkMode || BackColor.R < 100;
         var bgColor = isDark ? Color.FromArgb(24, 24, 27) : Color.FromArgb(245, 246, 250);
         var tabSurface = isDark ? Color.FromArgb(34, 34, 38) : Color.FromArgb(230, 233, 238);
         var tabActive = isDark ? Color.FromArgb(42, 42, 48) : Color.White;
