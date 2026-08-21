@@ -117,6 +117,44 @@ public class UpdateService
         return false;
     }
 
+    public async Task<string> DownloadUpdateInstallerAsync(string downloadUrl, IProgress<int>? progress = null, CancellationToken ct = default)
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"RTSAS-Update-Setup-{Guid.NewGuid():N}.exe");
+        using var response = await _httpClient.GetAsync(downloadUrl, HttpCompletionOption.ResponseHeadersRead, ct);
+        response.EnsureSuccessStatusCode();
+
+        var totalBytes = response.Content.Headers.ContentLength ?? -1L;
+        using var sourceStream = await response.Content.ReadAsStreamAsync(ct);
+        using var fileStream = File.Create(tempFile);
+
+        var buffer = new byte[16384];
+        long totalRead = 0;
+        int bytesRead;
+
+        while ((bytesRead = await sourceStream.ReadAsync(buffer, 0, buffer.Length, ct)) > 0)
+        {
+            await fileStream.WriteAsync(buffer, 0, bytesRead, ct);
+            totalRead += bytesRead;
+            if (totalBytes > 0 && progress != null)
+            {
+                int percentage = (int)((totalRead * 100) / totalBytes);
+                progress.Report(percentage);
+            }
+        }
+
+        return tempFile;
+    }
+
+    public static void LaunchInstallerAndExit(string installerPath)
+    {
+        Process.Start(new ProcessStartInfo
+        {
+            FileName = installerPath,
+            UseShellExecute = true
+        });
+        Environment.Exit(0);
+    }
+
     public static void OpenUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url)) return;

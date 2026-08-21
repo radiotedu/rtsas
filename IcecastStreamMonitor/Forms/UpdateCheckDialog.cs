@@ -67,15 +67,52 @@ public partial class UpdateCheckDialog : Form
         await PerformCheckAsync();
     }
 
-    private void BtnDownloadUpdate_Click(object? sender, EventArgs e)
+    private async void BtnDownloadUpdate_Click(object? sender, EventArgs e)
     {
-        if (_latestUpdateInfo != null && !string.IsNullOrEmpty(_latestUpdateInfo.DownloadUrl))
+        if (_latestUpdateInfo == null || string.IsNullOrEmpty(_latestUpdateInfo.DownloadUrl))
         {
-            UpdateService.OpenUrl(_latestUpdateInfo.DownloadUrl);
+            UpdateService.OpenUrl("https://github.com/radiotedu/rtsas/releases");
+            return;
+        }
+
+        var url = _latestUpdateInfo.DownloadUrl;
+
+        // If it's an installer executable, download in-app and launch automatically
+        if (url.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+        {
+            try
+            {
+                btnDownloadUpdate.Enabled = false;
+                btnCheckNow.Enabled = false;
+                btnDownloadUpdate.Text = "Downloading Update (0%)...";
+                lblStatusBadge.Text = "⏳ Downloading...";
+                lblStatusBadge.ForeColor = Color.DodgerBlue;
+
+                var progress = new Progress<int>(percent =>
+                {
+                    btnDownloadUpdate.Text = $"Downloading Update ({percent}%)...";
+                });
+
+                var installerPath = await _updateService.DownloadUpdateInstallerAsync(url, progress);
+
+                btnDownloadUpdate.Text = "Launching Installer...";
+                lblStatusBadge.Text = "🚀 Starting Update...";
+
+                UpdateService.LaunchInstallerAndExit(installerPath);
+            }
+            catch (Exception ex)
+            {
+                btnDownloadUpdate.Enabled = true;
+                btnCheckNow.Enabled = true;
+                btnDownloadUpdate.Text = "Download && Install Update";
+                MessageBox.Show($"Failed to auto-download update: {ex.Message}\n\nOpening release page in browser instead.", "Update Error", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                UpdateService.OpenUrl(url);
+            }
         }
         else
         {
-            UpdateService.OpenUrl("https://github.com/orcunkilic/IcecastStreamMonitor/releases");
+            // Web page or zip archive
+            UpdateService.OpenUrl(url);
         }
     }
 }
