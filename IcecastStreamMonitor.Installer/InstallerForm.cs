@@ -18,19 +18,20 @@ public partial class InstallerForm : Form
     private RadioButton radUpgradeInPlace = null!;
     private RadioButton radFreshInstall = null!;
 
-    // Controls for Step 2 - Tab 1 (Server & Mounts)
+    // Controls for Step 2 (Server & Mounts)
     private TextBox txtServerHost = null!;
     private NumericUpDown numServerPort = null!;
     private DataGridView gridMounts = null!;
     private Button btnAddMount = null!;
     private Button btnRemoveMount = null!;
 
-    // Controls for Step 2 - Tab 2 (Passwords & Remote User)
+    // Controls for Step 3 (Master Passwords)
     private TextBox txtMasterAdminPassword = null!;
     private TextBox txtMasterAdminPasswordConfirm = null!;
     private TextBox txtDefaultStreamPassword = null!;
     private TextBox txtDefaultStreamPasswordConfirm = null!;
 
+    // Controls for Step 4 (Remote Companion User)
     private CheckBox chkEnableRemoteApi = null!;
     private TextBox txtRemoteUsername = null!;
     private TextBox txtRemotePassword = null!;
@@ -38,13 +39,13 @@ public partial class InstallerForm : Form
     private ComboBox cboRemoteRole = null!;
     private NumericUpDown numRemotePort = null!;
 
-    // Controls for Step 3
+    // Controls for Step 5 (Shortcuts & Options)
     private CheckBox chkDesktopShortcut = null!;
     private CheckBox chkStartMenuShortcut = null!;
     private CheckBox chkAutoStart = null!;
     private CheckBox chkLaunchAfter = null!;
 
-    // Controls for Step 4
+    // Controls for Step 6 (Progress & Finish)
     private ProgressBar progressBar = null!;
     private Label lblInstallStatus = null!;
 
@@ -119,12 +120,18 @@ public partial class InstallerForm : Form
         lblStep4.Font = new Font(lblStep4.Font, step == 4 ? FontStyle.Bold : FontStyle.Regular);
         lblStep4.ForeColor = step == 4 ? Color.White : Color.FromArgb(148, 163, 184);
 
-        btnBack.Enabled = step > 1 && step < 4;
+        lblStep5.Font = new Font(lblStep5.Font, step == 5 ? FontStyle.Bold : FontStyle.Regular);
+        lblStep5.ForeColor = step == 5 ? Color.White : Color.FromArgb(148, 163, 184);
+
+        lblStep6.Font = new Font(lblStep6.Font, step == 6 ? FontStyle.Bold : FontStyle.Regular);
+        lblStep6.ForeColor = step == 6 ? Color.White : Color.FromArgb(148, 163, 184);
+
+        btnBack.Enabled = step > 1 && step < 6;
         btnNext.Text = step switch
         {
             1 => (_isUpgradeMode && (radUpgradeInPlace?.Checked ?? true)) ? "Upgrade Now >" : "Next >",
-            3 => "Install >",
-            4 => "Finish",
+            5 => "Install >",
+            6 => "Finish",
             _ => "Next >"
         };
 
@@ -141,6 +148,12 @@ public partial class InstallerForm : Form
                 break;
             case 4:
                 BuildStep4();
+                break;
+            case 5:
+                BuildStep5();
+                break;
+            case 6:
+                BuildStep6();
                 break;
         }
     }
@@ -286,38 +299,32 @@ public partial class InstallerForm : Form
     {
         var lblHeader = new Label
         {
-            Text = "Server Settings, Credentials & Remote Access",
+            Text = "Stream Server Host & Mountpoints",
             Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-            Location = new Point(15, 10),
+            Location = new Point(20, 15),
             AutoSize = true
         };
 
-        var tabControl = new TabControl
+        var lblDesc = new Label
         {
-            Location = new Point(15, 40),
-            Size = new Size(540, 410),
-            Font = new Font("Segoe UI", 9F, FontStyle.Regular)
+            Text = "Configure the local/remote streaming server address and configured mount paths:",
+            Location = new Point(20, 42),
+            Size = new Size(520, 20)
         };
 
-        // ==========================================
-        // TAB 1: Server & Mountpoints
-        // ==========================================
-        var tabServer = new TabPage("📻 Server & Mountpoints");
-        tabServer.Padding = new Padding(12);
-
-        var lblHost = new Label { Text = "Server Host / IP:", Location = new Point(12, 16), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblHost = new Label { Text = "Server Host / IP:", Location = new Point(20, 75), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
         if (txtServerHost == null)
-            txtServerHost = new TextBox { Text = "127.0.0.1", PlaceholderText = "127.0.0.1 or stream.radiotedu.com", Location = new Point(125, 13), Size = new Size(210, 23) };
+            txtServerHost = new TextBox { Text = "127.0.0.1", PlaceholderText = "127.0.0.1 or stream.radiotedu.com", Location = new Point(135, 72), Size = new Size(210, 23) };
 
-        var lblPort = new Label { Text = "Stream Port:", Location = new Point(345, 16), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
+        var lblPort = new Label { Text = "Stream Port:", Location = new Point(365, 75), AutoSize = true, Font = new Font("Segoe UI", 9F, FontStyle.Bold) };
         if (numServerPort == null)
-            numServerPort = new NumericUpDown { Minimum = 1, Maximum = 65535, Value = 11154, Location = new Point(430, 13), Size = new Size(85, 23) };
+            numServerPort = new NumericUpDown { Minimum = 1, Maximum = 65535, Value = 11154, Location = new Point(450, 72), Size = new Size(88, 23) };
 
         var btnImportTinyIce = new Button
         {
             Text = "📥 Import Mounts from TinyIce config.json",
-            Location = new Point(12, 45),
-            Size = new Size(503, 27),
+            Location = new Point(20, 105),
+            Size = new Size(518, 28),
             BackColor = Color.FromArgb(240, 246, 255),
             FlatStyle = FlatStyle.System
         };
@@ -374,19 +381,19 @@ public partial class InstallerForm : Form
         {
             Text = "Configured Channels / Mountpoints:",
             Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-            Location = new Point(12, 85),
+            Location = new Point(20, 145),
             AutoSize = true
         };
 
-        btnAddMount = new Button { Text = "+ Add Mount", Location = new Point(330, 80), Size = new Size(90, 25) };
-        btnRemoveMount = new Button { Text = "✕ Remove", Location = new Point(425, 80), Size = new Size(90, 25) };
+        btnAddMount = new Button { Text = "+ Add Mount", Location = new Point(340, 140), Size = new Size(95, 26) };
+        btnRemoveMount = new Button { Text = "✕ Remove", Location = new Point(443, 140), Size = new Size(95, 26) };
 
         if (gridMounts == null)
         {
             gridMounts = new DataGridView
             {
-                Location = new Point(12, 110),
-                Size = new Size(503, 230),
+                Location = new Point(20, 172),
+                Size = new Size(518, 235),
                 AllowUserToAddRows = false,
                 AllowUserToDeleteRows = false,
                 BackgroundColor = Color.White,
@@ -403,7 +410,6 @@ public partial class InstallerForm : Form
             gridMounts.Columns[1].FillWeight = 25;
             gridMounts.Columns[2].FillWeight = 40;
 
-            // Default initial mount
             gridMounts.Rows.Add("Channel 1", "/stream1", "");
         }
 
@@ -421,133 +427,183 @@ public partial class InstallerForm : Form
             }
         };
 
-        tabServer.Controls.AddRange(new Control[]
+        pnlContainer.Controls.AddRange(new Control[]
         {
+            lblHeader, lblDesc,
             lblHost, txtServerHost, lblPort, numServerPort,
             btnImportTinyIce,
             lblMountsTitle, btnAddMount, btnRemoveMount,
             gridMounts
         });
+    }
 
-        // ==========================================
-        // TAB 2: Passwords & Remote Control User
-        // ==========================================
-        var tabSecurity = new TabPage("🔐 Passwords & Remote Access");
-        tabSecurity.Padding = new Padding(12);
-
-        // Group 1: Server & Admin Passwords (Spacious double-entry)
-        var grpServerPasswords = new GroupBox
+    private void BuildStep3()
+    {
+        var lblHeader = new Label
         {
-            Text = "🛡️ Server & Admin Passwords (Double-Entry Confirmation)",
-            Location = new Point(10, 8),
-            Size = new Size(510, 160),
+            Text = "Master Admin & Stream Security Credentials",
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Location = new Point(20, 15),
+            AutoSize = true
+        };
+
+        var lblDesc = new Label
+        {
+            Text = "Please define your Master Dashboard password and default DJ / Source broadcast password.\nAll fields start empty for security; enter each password twice to prevent typos.",
+            Location = new Point(20, 42),
+            Size = new Size(520, 35)
+        };
+
+        // Group 1: Master Admin Password
+        var grpAdmin = new GroupBox
+        {
+            Text = "🛡️ Master Admin Password (Dashboard & Configuration Lock)",
+            Location = new Point(20, 85),
+            Size = new Size(520, 130),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
         };
 
-        var lblAdmin1 = new Label { Text = "Master Admin Password:", Location = new Point(12, 28), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblAdmin1 = new Label { Text = "Master Admin Password:", Location = new Point(15, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (txtMasterAdminPassword == null)
-            txtMasterAdminPassword = new TextBox { Text = "admin123", PasswordChar = '•', Location = new Point(12, 48), Size = new Size(230, 23) };
+            txtMasterAdminPassword = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(15, 52), Size = new Size(235, 23) };
 
-        var lblAdmin2 = new Label { Text = "Confirm Admin Password:", Location = new Point(260, 28), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblAdmin2 = new Label { Text = "Confirm Admin Password:", Location = new Point(270, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (txtMasterAdminPasswordConfirm == null)
-            txtMasterAdminPasswordConfirm = new TextBox { Text = "admin123", PasswordChar = '•', Location = new Point(260, 48), Size = new Size(230, 23) };
+            txtMasterAdminPasswordConfirm = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(270, 52), Size = new Size(235, 23) };
 
-        var lblStream1 = new Label { Text = "Stream (DJ / Source) Password:", Location = new Point(12, 85), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
-        if (txtDefaultStreamPassword == null)
-            txtDefaultStreamPassword = new TextBox { Text = "hackme", PasswordChar = '•', Location = new Point(12, 105), Size = new Size(230, 23) };
-
-        var lblStream2 = new Label { Text = "Confirm Stream Password:", Location = new Point(260, 85), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
-        if (txtDefaultStreamPasswordConfirm == null)
-            txtDefaultStreamPasswordConfirm = new TextBox { Text = "hackme", PasswordChar = '•', Location = new Point(260, 105), Size = new Size(230, 23) };
-
-        var lblNoteChars = new Label
+        var lblAdminNote = new Label
         {
-            Text = "ℹ️ Supports all special characters (<>, &, @, #, etc.) with DPAPI encryption.",
+            Text = "Secures stream configuration, adding/removing mounts, and admin dashboard tools.",
             Font = new Font("Segoe UI", 8F, FontStyle.Italic),
-            ForeColor = Color.DarkSlateGray,
-            Location = new Point(12, 134),
-            Size = new Size(480, 20)
+            ForeColor = SystemColors.GrayText,
+            Location = new Point(15, 88),
+            Size = new Size(490, 20)
         };
 
-        grpServerPasswords.Controls.AddRange(new Control[]
-        {
-            lblAdmin1, txtMasterAdminPassword, lblAdmin2, txtMasterAdminPasswordConfirm,
-            lblStream1, txtDefaultStreamPassword, lblStream2, txtDefaultStreamPasswordConfirm,
-            lblNoteChars
-        });
+        grpAdmin.Controls.AddRange(new Control[] { lblAdmin1, txtMasterAdminPassword, lblAdmin2, txtMasterAdminPasswordConfirm, lblAdminNote });
 
-        // Group 2: Remote Control Companion User (For Computer B)
-        var grpRemoteUser = new GroupBox
+        // Group 2: Default Stream Password
+        var grpStream = new GroupBox
         {
-            Text = "💻 Remote Control Companion Client (For Computer B)",
-            Location = new Point(10, 175),
-            Size = new Size(510, 195),
+            Text = "🎙️ Stream (Source / DJ) Broadcast Password",
+            Location = new Point(20, 225),
+            Size = new Size(520, 130),
             Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+        };
+
+        var lblStream1 = new Label { Text = "Default Stream Password:", Location = new Point(15, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        if (txtDefaultStreamPassword == null)
+            txtDefaultStreamPassword = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(15, 52), Size = new Size(235, 23) };
+
+        var lblStream2 = new Label { Text = "Confirm Stream Password:", Location = new Point(270, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        if (txtDefaultStreamPasswordConfirm == null)
+            txtDefaultStreamPasswordConfirm = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(270, 52), Size = new Size(235, 23) };
+
+        var lblStreamNote = new Label
+        {
+            Text = "Used by live encoders (BUTT, SAM Broadcaster, Mixxx) to push audio to stream mounts.",
+            Font = new Font("Segoe UI", 8F, FontStyle.Italic),
+            ForeColor = SystemColors.GrayText,
+            Location = new Point(15, 88),
+            Size = new Size(490, 20)
+        };
+
+        grpStream.Controls.AddRange(new Control[] { lblStream1, txtDefaultStreamPassword, lblStream2, txtDefaultStreamPasswordConfirm, lblStreamNote });
+
+        var lblSpecialNote = new Label
+        {
+            Text = "ℹ️ Special characters like <>, &, @, #, !, %, \", ' are 100% supported with salted PBKDF2 hashing.",
+            Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+            ForeColor = Color.DarkSlateBlue,
+            Location = new Point(20, 370),
+            Size = new Size(520, 25)
+        };
+
+        pnlContainer.Controls.AddRange(new Control[] { lblHeader, lblDesc, grpAdmin, grpStream, lblSpecialNote });
+    }
+
+    private void BuildStep4()
+    {
+        var lblHeader = new Label
+        {
+            Text = "Remote Control Companion User (For Computer B)",
+            Font = new Font("Segoe UI", 12F, FontStyle.Bold),
+            Location = new Point(20, 15),
+            AutoSize = true
+        };
+
+        var lblDesc = new Label
+        {
+            Text = "Create an initial operator or admin user account so client computers on your local network\nor internet can connect via RTSAS-RemoteControl without physical server access:",
+            Location = new Point(20, 42),
+            Size = new Size(520, 35)
         };
 
         if (chkEnableRemoteApi == null)
             chkEnableRemoteApi = new CheckBox
             {
-                Text = "Enable Remote Control HTTP API Server (Required for Remote Companion)",
+                Text = "Enable Remote Control HTTP API Server on this machine",
                 Checked = true,
-                Location = new Point(12, 24),
+                Location = new Point(20, 85),
                 AutoSize = true,
                 Font = new Font("Segoe UI", 9F, FontStyle.Bold),
                 ForeColor = Color.MidnightBlue
             };
 
-        var lblRemUname = new Label { Text = "Remote Username:", Location = new Point(12, 54), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
-        if (txtRemoteUsername == null)
-            txtRemoteUsername = new TextBox { Text = "admin", Location = new Point(12, 74), Size = new Size(150, 23) };
+        var grpRemote = new GroupBox
+        {
+            Text = "👤 Initial Remote Account Credentials",
+            Location = new Point(20, 115),
+            Size = new Size(520, 230),
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold)
+        };
 
-        var lblRemRole = new Label { Text = "User Role:", Location = new Point(180, 54), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblRemUname = new Label { Text = "Remote Username:", Location = new Point(15, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        if (txtRemoteUsername == null)
+            txtRemoteUsername = new TextBox { Text = "admin", Location = new Point(15, 52), Size = new Size(150, 23) };
+
+        var lblRemRole = new Label { Text = "User Role:", Location = new Point(185, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (cboRemoteRole == null)
         {
-            cboRemoteRole = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(180, 74), Size = new Size(150, 23) };
+            cboRemoteRole = new ComboBox { DropDownStyle = ComboBoxStyle.DropDownList, Location = new Point(185, 52), Size = new Size(150, 23) };
             cboRemoteRole.Items.AddRange(new[] { "SuperAdmin", "Operator", "Viewer" });
             cboRemoteRole.SelectedIndex = 0;
         }
 
-        var lblRemPort = new Label { Text = "Remote Port:", Location = new Point(350, 54), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblRemPort = new Label { Text = "Remote API Port:", Location = new Point(355, 30), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (numRemotePort == null)
-            numRemotePort = new NumericUpDown { Minimum = 1024, Maximum = 65535, Value = 8080, Location = new Point(350, 74), Size = new Size(140, 23) };
+            numRemotePort = new NumericUpDown { Minimum = 1024, Maximum = 65535, Value = 8080, Location = new Point(355, 52), Size = new Size(145, 23) };
 
-        var lblRemPass1 = new Label { Text = "Remote Password:", Location = new Point(12, 108), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblRemPass1 = new Label { Text = "Remote User Password:", Location = new Point(15, 95), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (txtRemotePassword == null)
-            txtRemotePassword = new TextBox { Text = "admin123", PasswordChar = '•', Location = new Point(12, 128), Size = new Size(230, 23) };
+            txtRemotePassword = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(15, 117), Size = new Size(235, 23) };
 
-        var lblRemPass2 = new Label { Text = "Confirm Remote Password:", Location = new Point(260, 108), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
+        var lblRemPass2 = new Label { Text = "Confirm Remote Password:", Location = new Point(270, 95), AutoSize = true, Font = new Font("Segoe UI", 8.5F, FontStyle.Regular) };
         if (txtRemotePasswordConfirm == null)
-            txtRemotePasswordConfirm = new TextBox { Text = "admin123", PasswordChar = '•', Location = new Point(260, 128), Size = new Size(230, 23) };
+            txtRemotePasswordConfirm = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(270, 117), Size = new Size(235, 23) };
 
-        var lblFirewallNote = new Label
+        var lblFirewall = new Label
         {
-            Text = "🔥 Windows Defender Firewall rules for port 8080 & streaming ports will be auto-configured.",
+            Text = "🔥 Windows Defender Firewall inbound rules will be created automatically for Port 8080 and Streaming Ports.",
             Font = new Font("Segoe UI", 8F, FontStyle.Italic),
             ForeColor = Color.DarkSlateBlue,
-            Location = new Point(12, 160),
-            Size = new Size(480, 25)
+            Location = new Point(15, 165),
+            Size = new Size(490, 40)
         };
 
-        grpRemoteUser.Controls.AddRange(new Control[]
+        grpRemote.Controls.AddRange(new Control[]
         {
-            chkEnableRemoteApi,
             lblRemUname, txtRemoteUsername,
             lblRemRole, cboRemoteRole,
             lblRemPort, numRemotePort,
             lblRemPass1, txtRemotePassword, lblRemPass2, txtRemotePasswordConfirm,
-            lblFirewallNote
+            lblFirewall
         });
 
-        tabSecurity.Controls.AddRange(new Control[] { grpServerPasswords, grpRemoteUser });
-
-        tabControl.TabPages.Add(tabServer);
-        tabControl.TabPages.Add(tabSecurity);
-
-        pnlContainer.Controls.AddRange(new Control[] { lblHeader, tabControl });
+        pnlContainer.Controls.AddRange(new Control[] { lblHeader, lblDesc, chkEnableRemoteApi, grpRemote });
     }
 
-    private void BuildStep3()
+    private void BuildStep5()
     {
         var lblHeader = new Label
         {
@@ -559,22 +615,22 @@ public partial class InstallerForm : Form
 
         var lblDesc = new Label
         {
-            Text = "Select which shortcuts and startup preferences you want to configure:",
+            Text = "Select which shortcuts and startup preferences you want to configure on this system:",
             Location = new Point(20, 48),
-            Size = new Size(500, 25)
+            Size = new Size(520, 25)
         };
 
         if (chkDesktopShortcut == null)
-            chkDesktopShortcut = new CheckBox { Text = "Create a Desktop Shortcut (RTSAS Server & Remote Companion)", Checked = true, Location = new Point(25, 90), AutoSize = true };
+            chkDesktopShortcut = new CheckBox { Text = "Create a Desktop Shortcut (RTSAS Server & Remote Companion)", Checked = true, Location = new Point(25, 95), AutoSize = true };
 
         if (chkStartMenuShortcut == null)
-            chkStartMenuShortcut = new CheckBox { Text = "Create a Start Menu Shortcut Folder", Checked = true, Location = new Point(25, 130), AutoSize = true };
+            chkStartMenuShortcut = new CheckBox { Text = "Create a Start Menu Shortcut Folder", Checked = true, Location = new Point(25, 135), AutoSize = true };
 
         if (chkAutoStart == null)
-            chkAutoStart = new CheckBox { Text = "Start Stream Monitor automatically on Windows boot (minimized to tray)", Checked = false, Location = new Point(25, 170), AutoSize = true };
+            chkAutoStart = new CheckBox { Text = "Start Stream Monitor automatically on Windows boot (minimized to tray)", Checked = false, Location = new Point(25, 175), AutoSize = true };
 
         if (chkLaunchAfter == null)
-            chkLaunchAfter = new CheckBox { Text = "Launch RADIOTEDU Stream Audio Server immediately after setup", Checked = true, Location = new Point(25, 210), AutoSize = true };
+            chkLaunchAfter = new CheckBox { Text = "Launch RADIOTEDU Stream Audio Server immediately after setup", Checked = true, Location = new Point(25, 215), AutoSize = true };
 
         pnlContainer.Controls.AddRange(new Control[]
         {
@@ -586,7 +642,7 @@ public partial class InstallerForm : Form
         });
     }
 
-    private void BuildStep4()
+    private void BuildStep6()
     {
         var lblHeader = new Label
         {
@@ -600,13 +656,13 @@ public partial class InstallerForm : Form
         {
             Text = "Preparing installation...",
             Location = new Point(20, 50),
-            Size = new Size(500, 25)
+            Size = new Size(520, 25)
         };
 
         progressBar = new ProgressBar
         {
             Location = new Point(20, 85),
-            Size = new Size(500, 23),
+            Size = new Size(520, 23),
             Style = ProgressBarStyle.Continuous,
             Value = 0
         };
@@ -617,7 +673,6 @@ public partial class InstallerForm : Form
         btnNext.Enabled = false;
         btnCancel.Enabled = false;
 
-        // Perform actual installation asynchronously
         _ = ExecuteInstallationAsync();
     }
 
@@ -801,7 +856,6 @@ public partial class InstallerForm : Form
     {
         try
         {
-            // Configure inbound firewall rules silently via netsh
             var psi = new ProcessStartInfo
             {
                 FileName = "netsh",
@@ -979,8 +1033,8 @@ public partial class InstallerForm : Form
 
             if (_isUpgradeMode && (radUpgradeInPlace?.Checked ?? true))
             {
-                // In-Place Upgrade: jump directly to Step 4 (Deploy & Preserve settings)
-                ShowStep(4);
+                // In-Place Upgrade: jump directly to Step 6 (Deploy & Preserve settings)
+                ShowStep(6);
                 return;
             }
 
@@ -995,6 +1049,26 @@ public partial class InstallerForm : Form
                 return;
             }
 
+            if (gridMounts.Rows.Count == 0)
+            {
+                MessageBox.Show("Please click '+ Add Mount' and configure at least one stream mountpoint to monitor.", "Mountpoint Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            foreach (DataGridViewRow row in gridMounts.Rows)
+            {
+                var mount = row.Cells[1].Value?.ToString()?.Trim() ?? "";
+                if (string.IsNullOrWhiteSpace(mount))
+                {
+                    MessageBox.Show("Mount path cannot be empty for any configured channel (e.g. /stream1).", "Invalid Mount Path", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+            }
+
+            ShowStep(3);
+        }
+        else if (_currentStep == 3)
+        {
             // 1. Validate Master Admin Passwords (Double-Entry)
             if (string.IsNullOrWhiteSpace(txtMasterAdminPassword.Text))
             {
@@ -1025,6 +1099,10 @@ public partial class InstallerForm : Form
                 return;
             }
 
+            ShowStep(4);
+        }
+        else if (_currentStep == 4)
+        {
             // 3. Validate Remote Control User Passwords (Double-Entry)
             if (chkEnableRemoteApi.Checked)
             {
@@ -1049,30 +1127,13 @@ public partial class InstallerForm : Form
                 }
             }
 
-            // 4. Validate Mountpoints
-            if (gridMounts.Rows.Count == 0)
-            {
-                MessageBox.Show("Please click '+ Add Mount' and configure at least one stream mountpoint to monitor.", "Mountpoint Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return;
-            }
-
-            foreach (DataGridViewRow row in gridMounts.Rows)
-            {
-                var mount = row.Cells[1].Value?.ToString()?.Trim() ?? "";
-                if (string.IsNullOrWhiteSpace(mount))
-                {
-                    MessageBox.Show("Mount path cannot be empty for any configured channel (e.g. /stream1).", "Invalid Mount Path", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-            }
-
-            ShowStep(3);
+            ShowStep(5);
         }
-        else if (_currentStep == 3)
+        else if (_currentStep == 5)
         {
-            ShowStep(4);
+            ShowStep(6);
         }
-        else if (_currentStep == 4)
+        else if (_currentStep == 6)
         {
             // Finish clicked
             if (chkLaunchAfter != null && chkLaunchAfter.Checked)
@@ -1095,7 +1156,7 @@ public partial class InstallerForm : Form
 
     private void BtnBack_Click(object? sender, EventArgs e)
     {
-        if (_currentStep > 1 && _currentStep < 4)
+        if (_currentStep > 1 && _currentStep < 6)
         {
             ShowStep(_currentStep - 1);
         }

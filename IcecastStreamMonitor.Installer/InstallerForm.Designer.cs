@@ -18,6 +18,8 @@ partial class InstallerForm
     private void InitializeComponent()
     {
         this.pnlSide = new System.Windows.Forms.Panel();
+        this.lblStep6 = new System.Windows.Forms.Label();
+        this.lblStep5 = new System.Windows.Forms.Label();
         this.lblStep4 = new System.Windows.Forms.Label();
         this.lblStep3 = new System.Windows.Forms.Label();
         this.lblStep2 = new System.Windows.Forms.Label();
@@ -35,6 +37,8 @@ partial class InstallerForm
         // pnlSide
         // 
         this.pnlSide.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(30)))), ((int)(((byte)(41)))), ((int)(((byte)(59)))));
+        this.pnlSide.Controls.Add(this.lblStep6);
+        this.pnlSide.Controls.Add(this.lblStep5);
         this.pnlSide.Controls.Add(this.lblStep4);
         this.pnlSide.Controls.Add(this.lblStep3);
         this.pnlSide.Controls.Add(this.lblStep2);
@@ -47,45 +51,67 @@ partial class InstallerForm
         this.pnlSide.Size = new System.Drawing.Size(190, 520);
         this.pnlSide.TabIndex = 0;
         // 
+        // lblStep6
+        // 
+        this.lblStep6.AutoSize = true;
+        this.lblStep6.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+        this.lblStep6.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
+        this.lblStep6.Location = new System.Drawing.Point(16, 260);
+        this.lblStep6.Name = "lblStep6";
+        this.lblStep6.Size = new System.Drawing.Size(99, 17);
+        this.lblStep6.TabIndex = 6;
+        this.lblStep6.Text = "6. Install Ready";
+        // 
+        // lblStep5
+        // 
+        this.lblStep5.AutoSize = true;
+        this.lblStep5.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
+        this.lblStep5.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
+        this.lblStep5.Location = new System.Drawing.Point(16, 220);
+        this.lblStep5.Name = "lblStep5";
+        this.lblStep5.Size = new System.Drawing.Size(117, 17);
+        this.lblStep5.TabIndex = 5;
+        this.lblStep5.Text = "5. Shortcuts && Start";
+        // 
         // lblStep4
         // 
         this.lblStep4.AutoSize = true;
         this.lblStep4.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep4.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep4.Location = new System.Drawing.Point(16, 210);
+        this.lblStep4.Location = new System.Drawing.Point(16, 180);
         this.lblStep4.Name = "lblStep4";
-        this.lblStep4.Size = new System.Drawing.Size(89, 17);
+        this.lblStep4.Size = new System.Drawing.Size(138, 17);
         this.lblStep4.TabIndex = 4;
-        this.lblStep4.Text = "4. Install Ready";
+        this.lblStep4.Text = "4. Remote Companion";
         // 
         // lblStep3
         // 
         this.lblStep3.AutoSize = true;
         this.lblStep3.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep3.Location = new System.Drawing.Point(16, 165);
+        this.lblStep3.Location = new System.Drawing.Point(16, 140);
         this.lblStep3.Name = "lblStep3";
-        this.lblStep3.Size = new System.Drawing.Size(117, 17);
+        this.lblStep3.Size = new System.Drawing.Size(127, 17);
         this.lblStep3.TabIndex = 3;
-        this.lblStep3.Text = "3. Shortcuts && Start";
+        this.lblStep3.Text = "3. Master Passwords";
         // 
         // lblStep2
         // 
         this.lblStep2.AutoSize = true;
         this.lblStep2.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep2.Location = new System.Drawing.Point(16, 120);
+        this.lblStep2.Location = new System.Drawing.Point(16, 100);
         this.lblStep2.Name = "lblStep2";
-        this.lblStep2.Size = new System.Drawing.Size(145, 17);
+        this.lblStep2.Size = new System.Drawing.Size(123, 17);
         this.lblStep2.TabIndex = 2;
-        this.lblStep2.Text = "2. Server && Credentials";
+        this.lblStep2.Text = "2. Server && Mounts";
         // 
         // lblStep1
         // 
         this.lblStep1.AutoSize = true;
         this.lblStep1.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         this.lblStep1.ForeColor = System.Drawing.Color.White;
-        this.lblStep1.Location = new System.Drawing.Point(16, 75);
+        this.lblStep1.Location = new System.Drawing.Point(16, 60);
         this.lblStep1.Name = "lblStep1";
         this.lblStep1.Size = new System.Drawing.Size(115, 17);
         this.lblStep1.TabIndex = 1;
@@ -95,9 +121,9 @@ partial class InstallerForm
         // 
         this.lblSideTitle.Font = new System.Drawing.Font("Segoe UI", 11.25F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         this.lblSideTitle.ForeColor = System.Drawing.Color.White;
-        this.lblSideTitle.Location = new System.Drawing.Point(16, 16);
+        this.lblSideTitle.Location = new System.Drawing.Point(16, 12);
         this.lblSideTitle.Name = "lblSideTitle";
-        this.lblSideTitle.Size = new System.Drawing.Size(158, 48);
+        this.lblSideTitle.Size = new System.Drawing.Size(158, 40);
         this.lblSideTitle.TabIndex = 0;
         this.lblSideTitle.Text = "RADIOTEDU Setup Wizard";
         // 
@@ -184,6 +210,8 @@ partial class InstallerForm
 
     private System.Windows.Forms.Panel pnlSide;
     private System.Windows.Forms.Label lblSideTitle;
+    private System.Windows.Forms.Label lblStep6;
+    private System.Windows.Forms.Label lblStep5;
     private System.Windows.Forms.Label lblStep4;
     private System.Windows.Forms.Label lblStep3;
     private System.Windows.Forms.Label lblStep2;
