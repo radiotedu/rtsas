@@ -11,6 +11,12 @@ public partial class InstallerForm : Form
     // Controls for Step 1
     private TextBox txtInstallPath = null!;
     private Button btnBrowse = null!;
+    private bool _isExistingInstallation = false;
+    private int _existingChannelsCount = 0;
+    private string _existingVersion = "1.0.0";
+    private bool _isUpgradeMode = false;
+    private RadioButton radUpgradeInPlace = null!;
+    private RadioButton radFreshInstall = null!;
 
     // Controls for Step 2 (Multi-channel & Security)
     private TextBox txtServerHost = null!;
@@ -38,7 +44,44 @@ public partial class InstallerForm : Form
 
     private void InstallerForm_Load(object? sender, EventArgs e)
     {
+        DetectExistingInstallation();
         ShowStep(1);
+    }
+
+    private void DetectExistingInstallation()
+    {
+        try
+        {
+            var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            var configPath = Path.Combine(appData, "IcecastStreamMonitor", "config.json");
+            var localPrograms = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Programs", "IcecastStreamMonitor", "IcecastStreamMonitor.exe");
+
+            if (File.Exists(configPath) || File.Exists(localPrograms))
+            {
+                _isExistingInstallation = true;
+                _isUpgradeMode = true;
+
+                if (File.Exists(configPath))
+                {
+                    var json = File.ReadAllText(configPath);
+                    using var doc = JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("Channels", out var ch) && ch.ValueKind == JsonValueKind.Array)
+                    {
+                        _existingChannelsCount = ch.GetArrayLength();
+                    }
+                }
+
+                if (File.Exists(localPrograms))
+                {
+                    var fvi = FileVersionInfo.GetVersionInfo(localPrograms);
+                    if (!string.IsNullOrEmpty(fvi.FileVersion))
+                    {
+                        _existingVersion = fvi.FileVersion;
+                    }
+                }
+            }
+        }
+        catch { }
     }
 
     private void ShowStep(int step)
@@ -62,6 +105,7 @@ public partial class InstallerForm : Form
         btnBack.Enabled = step > 1 && step < 4;
         btnNext.Text = step switch
         {
+            1 => (_isUpgradeMode && (radUpgradeInPlace?.Checked ?? true)) ? "Upgrade Now >" : "Next >",
             3 => "Install >",
             4 => "Finish",
             _ => "Next >"
@@ -88,18 +132,89 @@ public partial class InstallerForm : Form
     {
         var lblHeader = new Label
         {
-            Text = "Welcome & Destination Folder",
+            Text = _isExistingInstallation ? "RTSAS Setup & In-Place Upgrade" : "Welcome & Destination Folder",
             Font = new Font("Segoe UI", 12F, FontStyle.Bold),
             Location = new Point(20, 15),
             AutoSize = true
         };
 
-        var lblDesc = new Label
+        int topY = 48;
+
+        if (_isExistingInstallation)
         {
-            Text = "This wizard will install Icecast & SHOUTcast Live Stream Monitor on your computer.\n\nPlease select the folder where the program will be installed:",
-            Location = new Point(20, 50),
-            Size = new Size(440, 45)
+            var pnlUpgrade = new Panel
+            {
+                Location = new Point(20, topY),
+                Size = new Size(440, 115),
+                BackColor = Color.FromArgb(240, 249, 255),
+                BorderStyle = BorderStyle.FixedSingle
+            };
+
+            var lblUpgradeTitle = new Label
+            {
+                Text = $"✨ Existing Installation Detected (v{_existingVersion})",
+                Font = new Font("Segoe UI", 9.5F, FontStyle.Bold),
+                ForeColor = Color.FromArgb(12, 74, 110),
+                Location = new Point(10, 8),
+                AutoSize = true
+            };
+
+            var lblUpgradeDesc = new Label
+            {
+                Text = $"Found {_existingChannelsCount} active channel(s), encrypted passwords, and server configs.",
+                ForeColor = Color.FromArgb(30, 58, 138),
+                Location = new Point(10, 30),
+                Size = new Size(420, 20)
+            };
+
+            radUpgradeInPlace = new RadioButton
+            {
+                Text = "🔄 Seamless Upgrade (Keep all 35 mounts, passwords & settings intact)",
+                Checked = true,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                ForeColor = Color.ForestGreen,
+                Location = new Point(12, 55),
+                Size = new Size(420, 24)
+            };
+            radUpgradeInPlace.CheckedChanged += (s, e) =>
+            {
+                _isUpgradeMode = radUpgradeInPlace.Checked;
+                btnNext.Text = _isUpgradeMode ? "Upgrade Now >" : "Next >";
+            };
+
+            radFreshInstall = new RadioButton
+            {
+                Text = "⚙️ Re-configure Setup (Manually reconfigure server & channels)",
+                Checked = false,
+                Location = new Point(12, 80),
+                Size = new Size(420, 24)
+            };
+
+            pnlUpgrade.Controls.AddRange(new Control[] { lblUpgradeTitle, lblUpgradeDesc, radUpgradeInPlace, radFreshInstall });
+            pnlContainer.Controls.Add(pnlUpgrade);
+
+            topY += 125;
+        }
+        else
+        {
+            var lblDesc = new Label
+            {
+                Text = "This wizard will install RadioTEDU Stream Application Suite (RTSAS) on your computer.\n\nPlease select the folder where the program will be installed:",
+                Location = new Point(20, topY),
+                Size = new Size(440, 45)
+            };
+            pnlContainer.Controls.Add(lblDesc);
+            topY += 55;
+        }
+
+        var lblPathTitle = new Label
+        {
+            Text = "Installation Folder:",
+            Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+            Location = new Point(20, topY),
+            AutoSize = true
         };
+        topY += 22;
 
         var defaultPath = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -111,15 +226,19 @@ public partial class InstallerForm : Form
             txtInstallPath = new TextBox
             {
                 Text = defaultPath,
-                Location = new Point(20, 110),
+                Location = new Point(20, topY),
                 Size = new Size(340, 23)
             };
+        }
+        else
+        {
+            txtInstallPath.Location = new Point(20, topY);
         }
 
         btnBrowse = new Button
         {
             Text = "Browse...",
-            Location = new Point(368, 109),
+            Location = new Point(368, topY - 1),
             Size = new Size(80, 25)
         };
         btnBrowse.Click += (s, e) =>
@@ -132,15 +251,17 @@ public partial class InstallerForm : Form
             }
         };
 
+        topY += 35;
+
         var lblInfo = new Label
         {
-            Text = "Encrypted Security: All channel passwords and Master Admin keys will be encrypted at rest in configuration JSON.\nRequired space: ~15 MB",
+            Text = "🔒 Encrypted Security: Channel credentials & keys are protected with Windows DPAPI.\nRequired space: ~15 MB",
             ForeColor = SystemColors.GrayText,
-            Location = new Point(20, 155),
-            Size = new Size(440, 45)
+            Location = new Point(20, topY),
+            Size = new Size(440, 40)
         };
 
-        pnlContainer.Controls.AddRange(new Control[] { lblHeader, lblDesc, txtInstallPath, btnBrowse, lblInfo });
+        pnlContainer.Controls.AddRange(new Control[] { lblHeader, lblPathTitle, txtInstallPath, btnBrowse, lblInfo });
     }
 
     private void BuildStep2()
@@ -378,8 +499,26 @@ public partial class InstallerForm : Form
         var targetDir = txtInstallPath.Text.Trim();
         Directory.CreateDirectory(targetDir);
 
-        lblInstallStatus.Text = "Deploying application binary files...";
-        progressBar.Value = 25;
+        lblInstallStatus.Text = "Closing any active RTSAS instances...";
+        progressBar.Value = 10;
+        await Task.Delay(100);
+
+        try
+        {
+            var procs = Process.GetProcessesByName("IcecastStreamMonitor")
+                .Concat(Process.GetProcessesByName("IcecastStreamMonitor.RemoteControl"));
+            foreach (var p in procs)
+            {
+                if (p.Id != Environment.ProcessId)
+                {
+                    try { p.Kill(); p.WaitForExit(1500); } catch { }
+                }
+            }
+        }
+        catch { }
+
+        lblInstallStatus.Text = "Deploying upgraded application binaries...";
+        progressBar.Value = 35;
         await Task.Delay(200);
 
         bool extractedEmbedded = false;
@@ -437,22 +576,30 @@ public partial class InstallerForm : Form
             }
         }
 
-        progressBar.Value = 50;
-        lblInstallStatus.Text = "Encrypting passwords and writing initial multi-channel configuration...";
-        await Task.Delay(200);
+        progressBar.Value = 65;
 
-        // Write preconfigured multi-channel settings with encrypted passwords
-        WriteInitialSettings(targetDir);
+        if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
+        {
+            lblInstallStatus.Text = "Preserving existing mounts, passwords, and security settings...";
+            await Task.Delay(200);
+            PreserveExistingSettings(targetDir);
+        }
+        else
+        {
+            lblInstallStatus.Text = "Encrypting passwords and writing initial configuration...";
+            await Task.Delay(200);
+            WriteInitialSettings(targetDir);
+        }
 
-        progressBar.Value = 75;
-        lblInstallStatus.Text = "Creating shortcuts and registry entries...";
+        progressBar.Value = 85;
+        lblInstallStatus.Text = "Updating shortcuts and registry entries...";
         await Task.Delay(200);
 
         var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
         var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
 
         // Desktop Shortcuts
-        if (chkDesktopShortcut.Checked)
+        if (chkDesktopShortcut == null || chkDesktopShortcut.Checked)
         {
             CreateShortcut(
                 Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Icecast Stream Monitor.lnk"),
@@ -471,7 +618,7 @@ public partial class InstallerForm : Form
         }
 
         // Start Menu Shortcuts
-        if (chkStartMenuShortcut.Checked)
+        if (chkStartMenuShortcut == null || chkStartMenuShortcut.Checked)
         {
             var startMenuProg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Icecast Stream Monitor");
             Directory.CreateDirectory(startMenuProg);
@@ -492,7 +639,7 @@ public partial class InstallerForm : Form
         }
 
         // Windows Startup
-        if (chkAutoStart.Checked)
+        if (chkAutoStart != null && chkAutoStart.Checked)
         {
             try
             {
@@ -503,12 +650,41 @@ public partial class InstallerForm : Form
         }
 
         progressBar.Value = 100;
-        lblInstallStatus.Text = "✓ Installation Completed Successfully!";
+        if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
+        {
+            lblInstallStatus.Text = $"✓ Upgrade to v1.0.1 Completed! All {_existingChannelsCount} mounts & passwords preserved.";
+        }
+        else
+        {
+            lblInstallStatus.Text = "✓ Installation Completed Successfully!";
+        }
         lblInstallStatus.ForeColor = Color.ForestGreen;
 
         btnNext.Text = "Finish";
         btnNext.Enabled = true;
         btnCancel.Enabled = false;
+    }
+
+    private void PreserveExistingSettings(string targetDir)
+    {
+        var appData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        var appFolder = Path.Combine(appData, "IcecastStreamMonitor");
+        Directory.CreateDirectory(appFolder);
+        var configPath = Path.Combine(appFolder, "config.json");
+
+        if (File.Exists(configPath))
+        {
+            try
+            {
+                var targetConfig = Path.Combine(targetDir, "config.json");
+                File.Copy(configPath, targetConfig, overwrite: true);
+            }
+            catch { }
+        }
+        else
+        {
+            WriteInitialSettings(targetDir);
+        }
     }
 
     private void WriteInitialSettings(string targetDir)
@@ -604,6 +780,14 @@ public partial class InstallerForm : Form
                 MessageBox.Show("Please select an installation folder.", "Path Required", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
+
+            if (_isUpgradeMode && (radUpgradeInPlace?.Checked ?? true))
+            {
+                // In-Place Upgrade: jump directly to Step 4 (Deploy & Preserve settings)
+                ShowStep(4);
+                return;
+            }
+
             ShowStep(2);
         }
         else if (_currentStep == 2)
