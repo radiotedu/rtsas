@@ -325,22 +325,59 @@ public partial class InstallerForm : Form
         progressBar.Value = 25;
         await Task.Delay(200);
 
-        // Copy application binaries from adjacent published files or source dir
-        var currentExeDir = AppDomain.CurrentDomain.BaseDirectory;
-        var publishDir = Path.Combine(currentExeDir, "..", "..", "..", "..", "publish");
-        if (!Directory.Exists(publishDir))
+        bool extractedEmbedded = false;
+        try
         {
-            publishDir = currentExeDir;
+            var asm = System.Reflection.Assembly.GetExecutingAssembly();
+            var resources = asm.GetManifestResourceNames();
+
+            foreach (var resName in resources)
+            {
+                if (resName.EndsWith("IcecastStreamMonitor.exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var stream = asm.GetManifestResourceStream(resName);
+                    if (stream != null)
+                    {
+                        var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
+                        using var fs = File.Create(destPath);
+                        stream.CopyTo(fs);
+                        extractedEmbedded = true;
+                    }
+                }
+                else if (resName.EndsWith("IcecastStreamMonitor.RemoteControl.exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    using var stream = asm.GetManifestResourceStream(resName);
+                    if (stream != null)
+                    {
+                        var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
+                        using var fs = File.Create(destPath);
+                        stream.CopyTo(fs);
+                        extractedEmbedded = true;
+                    }
+                }
+            }
         }
+        catch { }
 
-        var sourceFiles = Directory.GetFiles(publishDir, "*.*")
-            .Where(f => !f.EndsWith("IcecastStreamMonitor.Installer.exe", StringComparison.OrdinalIgnoreCase) &&
-                        !f.EndsWith("IcecastStreamMonitor.Installer.dll", StringComparison.OrdinalIgnoreCase));
-
-        foreach (var file in sourceFiles)
+        // Fallback: Copy adjacent published files if not embedded
+        if (!extractedEmbedded)
         {
-            var dest = Path.Combine(targetDir, Path.GetFileName(file));
-            File.Copy(file, dest, overwrite: true);
+            var currentExeDir = AppDomain.CurrentDomain.BaseDirectory;
+            var publishDir = Path.Combine(currentExeDir, "..", "..", "..", "..", "publish");
+            if (!Directory.Exists(publishDir))
+            {
+                publishDir = currentExeDir;
+            }
+
+            var sourceFiles = Directory.GetFiles(publishDir, "*.*")
+                .Where(f => !f.EndsWith("IcecastStreamMonitor.Installer.exe", StringComparison.OrdinalIgnoreCase) &&
+                            !f.EndsWith("IcecastStreamMonitor.Installer.dll", StringComparison.OrdinalIgnoreCase));
+
+            foreach (var file in sourceFiles)
+            {
+                var dest = Path.Combine(targetDir, Path.GetFileName(file));
+                File.Copy(file, dest, overwrite: true);
+            }
         }
 
         progressBar.Value = 50;
@@ -355,8 +392,9 @@ public partial class InstallerForm : Form
         await Task.Delay(200);
 
         var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
+        var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
 
-        // Desktop Shortcut
+        // Desktop Shortcuts
         if (chkDesktopShortcut.Checked)
         {
             CreateShortcut(
@@ -364,9 +402,18 @@ public partial class InstallerForm : Form
                 targetExe,
                 targetDir,
                 "Icecast & SHOUTcast Live Stream Monitor");
+
+            if (File.Exists(remoteExe))
+            {
+                CreateShortcut(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "Icecast Stream Monitor Remote.lnk"),
+                    remoteExe,
+                    targetDir,
+                    "Icecast Stream Monitor - Remote Client");
+            }
         }
 
-        // Start Menu Shortcut
+        // Start Menu Shortcuts
         if (chkStartMenuShortcut.Checked)
         {
             var startMenuProg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Icecast Stream Monitor");
@@ -376,6 +423,15 @@ public partial class InstallerForm : Form
                 targetExe,
                 targetDir,
                 "Icecast & SHOUTcast Live Stream Monitor");
+
+            if (File.Exists(remoteExe))
+            {
+                CreateShortcut(
+                    Path.Combine(startMenuProg, "Icecast Stream Monitor Remote.lnk"),
+                    remoteExe,
+                    targetDir,
+                    "Icecast Stream Monitor - Remote Client");
+            }
         }
 
         // Windows Startup

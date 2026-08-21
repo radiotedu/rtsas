@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
@@ -7,5 +7,10 @@
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
+
+  <ItemGroup Condition="Exists('..\single-publish\main\IcecastStreamMonitor.exe')">
+    <EmbeddedResource Include="..\single-publish\main\IcecastStreamMonitor.exe" Link="Payload\IcecastStreamMonitor.exe" />
+    <EmbeddedResource Include="..\single-publish\remote\IcecastStreamMonitor.RemoteControl.exe" Link="Payload\IcecastStreamMonitor.RemoteControl.exe" />
+  </ItemGroup>
 
 </Project>
