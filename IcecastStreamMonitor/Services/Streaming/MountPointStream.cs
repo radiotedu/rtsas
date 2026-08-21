@@ -53,15 +53,38 @@ public class MountPointStream
     private int _burstBufferCount = 0;
     private readonly object _burstLock = new();
 
+    // OGG Container Header Capture (Vorbis / Opus / Ogg FLAC)
+    private byte[]? _oggHeaderPages;
+    private readonly MemoryStream _oggCaptureStream = new();
+    private bool _oggHeadersCaptured = false;
+    private readonly object _oggLock = new();
+
     private bool _metadataChanged = true;
     private byte[] _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame("RadioTEDU Live Stream");
 
     public MountPointStream(string mountPath)
     {
         MountPath = mountPath.StartsWith('/') ? mountPath : "/" + mountPath;
+        ContentType = DetectInitialContentType(MountPath);
     }
 
+    public bool IsOggStream =>
+        ContentType.Contains("ogg", StringComparison.OrdinalIgnoreCase) ||
+        ContentType.Contains("opus", StringComparison.OrdinalIgnoreCase) ||
+        ContentType.Contains("vorbis", StringComparison.OrdinalIgnoreCase) ||
+        MountPath.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ||
+        MountPath.EndsWith(".opus", StringComparison.OrdinalIgnoreCase);
+
     public int ConcurrentListeners => _clients.Count;
+
+    private static string DetectInitialContentType(string path)
+    {
+        if (path.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) return "audio/ogg";
+        if (path.EndsWith(".opus", StringComparison.OrdinalIgnoreCase)) return "audio/opus";
+        if (path.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)) return "audio/flac";
+        if (path.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)) return "audio/aac";
+        return "audio/mpeg";
+    }
 
     public void UpdateTitle(string newTitle)
     {
@@ -77,7 +100,16 @@ public class MountPointStream
         SourceConnectedAt = DateTime.Now;
         SourceIpAddress = sourceIp;
         SourceUserAgent = userAgent;
-        if (!string.IsNullOrEmpty(contentType)) ContentType = contentType;
+
+        if (!string.IsNullOrWhiteSpace(contentType))
+        {
+            ContentType = contentType;
+        }
+        else
+        {
+            ContentType = DetectInitialContentType(MountPath);
+        }
+
         if (bitrate > 0) BitRateKbps = bitrate;
         if (!string.IsNullOrEmpty(name)) StreamName = name;
         if (!string.IsNullOrEmpty(genre)) StreamGenre = genre;
@@ -89,6 +121,13 @@ public class MountPointStream
         {
             _burstBufferWritePos = 0;
             _burstBufferCount = 0;
+        }
+
+        lock (_oggLock)
+        {
+            _oggHeaderPages = null;
+            _oggHeadersCaptured = false;
+            _oggCaptureStream.SetLength(0);
         }
     }
 
@@ -114,6 +153,31 @@ public class MountPointStream
         if (count <= 0) return;
 
         TotalBytesTransferred += count;
+
+        // Capture initial Ogg header pages if this is an Ogg stream
+        if (IsOggStream && !_oggHeadersCaptured)
+        {
+            lock (_oggLock)
+            {
+                if (!_oggHeadersCaptured)
+                {
+                    _oggCaptureStream.Write(buffer, offset, count);
+                    var capturedBytes = _oggCaptureStream.ToArray();
+                    var headerLength = TryParseOggHeaderLength(capturedBytes);
+                    if (headerLength > 0)
+                    {
+                        _oggHeaderPages = new byte[headerLength];
+                        Array.Copy(capturedBytes, 0, _oggHeaderPages, 0, headerLength);
+                        _oggHeadersCaptured = true;
+                    }
+                    else if (_oggCaptureStream.Length > 65536) // Fallback limit
+                    {
+                        _oggHeaderPages = _oggCaptureStream.ToArray();
+                        _oggHeadersCaptured = true;
+                    }
+                }
+            }
+        }
 
         // Write to circular burst buffer
         lock (_burstLock)
@@ -163,6 +227,51 @@ public class MountPointStream
         }
     }
 
+    private static int TryParseOggHeaderLength(byte[] data)
+    {
+        int offset = 0;
+        int pageCount = 0;
+
+        while (offset + 27 <= data.Length)
+        {
+            // Verify 'OggS'
+            if (data[offset] != 0x4F || data[offset + 1] != 0x67 || data[offset + 2] != 0x67 || data[offset + 3] != 0x53)
+            {
+                break;
+            }
+
+            int segmentCount = data[offset + 26];
+            if (offset + 27 + segmentCount > data.Length)
+            {
+                break; // Incomplete page header
+            }
+
+            int bodyLength = 0;
+            for (int i = 0; i < segmentCount; i++)
+            {
+                bodyLength += data[offset + 27 + i];
+            }
+
+            int totalPageSize = 27 + segmentCount + bodyLength;
+            if (offset + totalPageSize > data.Length)
+            {
+                break; // Incomplete page body
+            }
+
+            long granule = BitConverter.ToInt64(data, offset + 6);
+            pageCount++;
+            offset += totalPageSize;
+
+            // In Vorbis/Opus streams, the header consists of the first 2 or 3 pages (with granule == 0)
+            if (pageCount >= 3 || (pageCount >= 2 && granule > 0))
+            {
+                return offset;
+            }
+        }
+
+        return 0;
+    }
+
     private void SendChunkWithIcyMetadata(StreamingClient client, byte[] buffer, int offset, int count)
     {
         if (client.NetworkStream == null) return;
@@ -202,7 +311,7 @@ public class MountPointStream
             IpAddress = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress,
             UserAgent = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent,
             ConnectedSince = DateTime.Now,
-            SupportsIcyMetadata = supportsIcy,
+            SupportsIcyMetadata = !IsOggStream && supportsIcy,
             NetworkStream = stream,
             BytesUntilNextMetadata = IcyMetadataInjector.DefaultMetaInterval
         };
@@ -213,7 +322,34 @@ public class MountPointStream
             PeakListeners = _clients.Count;
         }
 
-        // Send initial burst buffer if available (Instant Playback Engine)
+        // 1. For OGG streams, send captured BOS / Setup header pages first
+        if (IsOggStream)
+        {
+            byte[]? oggHeader = null;
+            lock (_oggLock)
+            {
+                if (_oggHeaderPages != null && _oggHeaderPages.Length > 0)
+                {
+                    oggHeader = _oggHeaderPages;
+                }
+            }
+
+            if (oggHeader != null)
+            {
+                try
+                {
+                    stream.Write(oggHeader, 0, oggHeader.Length);
+                    client.BytesSent += oggHeader.Length;
+                }
+                catch
+                {
+                    RemoveClient(id);
+                    return client;
+                }
+            }
+        }
+
+        // 2. Send initial burst buffer if available (Instant Playback Engine)
         lock (_burstLock)
         {
             if (_burstBufferCount > 0)
@@ -227,10 +363,22 @@ public class MountPointStream
                         rawBurst[i] = _burstBuffer[(startPos + i) % _burstBuffer.Length];
                     }
 
-                    // Find frame sync header (0xFF, 0xEx/0xFx) in first 2048 bytes for clean decoder start
                     int syncOffset = 0;
-                    if (rawBurst.Length > 512 && (ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("mp3", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("aac", StringComparison.OrdinalIgnoreCase)))
+                    if (IsOggStream)
                     {
+                        // Align to OggS page boundary (0x4F, 0x67, 0x67, 0x53)
+                        for (int s = 0; s < Math.Min(rawBurst.Length - 4, 4096); s++)
+                        {
+                            if (rawBurst[s] == 0x4F && rawBurst[s + 1] == 0x67 && rawBurst[s + 2] == 0x67 && rawBurst[s + 3] == 0x53)
+                            {
+                                syncOffset = s;
+                                break;
+                            }
+                        }
+                    }
+                    else if (rawBurst.Length > 512 && (ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("mp3", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("aac", StringComparison.OrdinalIgnoreCase)))
+                    {
+                        // Align to MPEG / AAC sync header (0xFF, 0xEx/0xFx)
                         for (int s = 0; s < Math.Min(rawBurst.Length - 4, 2048); s++)
                         {
                             if (rawBurst[s] == 0xFF && (rawBurst[s + 1] & 0xE0) == 0xE0)
@@ -265,7 +413,7 @@ public class MountPointStream
         return client;
     }
 
-    public void RemoveClient(long id)
+    public bool KickClient(long id)
     {
         if (_clients.TryRemove(id, out var client))
         {
@@ -273,19 +421,16 @@ public class MountPointStream
             {
                 client.Cts.Cancel();
                 client.NetworkStream?.Close();
+                return true;
             }
             catch { }
         }
+        return false;
     }
 
-    public bool KickClient(long id)
+    public void RemoveClient(long id)
     {
-        if (_clients.TryGetValue(id, out var client))
-        {
-            RemoveClient(id);
-            return true;
-        }
-        return false;
+        KickClient(id);
     }
 
     public List<ListenerInfo> GetConnectedListeners()

@@ -62,8 +62,36 @@ public class AudioStreamServer
     public MountPointStream? GetMount(string mountPath)
     {
         var cleanPath = NormalizeMountPath(mountPath);
-        _mounts.TryGetValue(cleanPath, out var mount);
-        return mount;
+        if (_mounts.TryGetValue(cleanPath, out var mount))
+        {
+            return mount;
+        }
+
+        // Try stripped extension (e.g., /lofi.ogg -> /lofi)
+        if (cleanPath.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.EndsWith(".opus", StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.EndsWith(".mp3", StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.EndsWith(".aac", StringComparison.OrdinalIgnoreCase) ||
+            cleanPath.EndsWith(".flac", StringComparison.OrdinalIgnoreCase))
+        {
+            int dot = cleanPath.LastIndexOf('.');
+            var stripped = cleanPath.Substring(0, dot);
+            if (_mounts.TryGetValue(stripped, out var strippedMount))
+            {
+                return strippedMount;
+            }
+        }
+
+        // Try with common extensions (e.g. /lofi -> /lofi.ogg)
+        foreach (var ext in new[] { ".ogg", ".opus", ".mp3", ".aac", ".flac" })
+        {
+            if (_mounts.TryGetValue(cleanPath + ext, out var extMount))
+            {
+                return extMount;
+            }
+        }
+
+        return null;
     }
 
     public IEnumerable<MountPointStream> GetAllMounts() => _mounts.Values;
@@ -236,8 +264,8 @@ public class AudioStreamServer
 
     private async Task HandleSourceIngestAsync(string rawUri, Dictionary<string, string> headers, NetworkStream stream, string clientIp, string userAgent, CancellationToken ct)
     {
-        var mountPath = ExtractMountPath(rawUri);
-        var mount = EnsureMount(mountPath);
+        var mountPath = NormalizeMountPath(rawUri);
+        var mount = GetMount(mountPath) ?? EnsureMount(mountPath);
 
         // Authenticate DJ Source
         if (!AuthenticateSource(headers, mount))
@@ -247,7 +275,10 @@ public class AudioStreamServer
         }
 
         // Extract broadcast parameters
-        var contentType = headers.TryGetValue("Content-Type", out var ctHeader) ? ctHeader : "audio/mpeg";
+        var contentType = headers.TryGetValue("Content-Type", out var ctHeader) && !string.IsNullOrWhiteSpace(ctHeader)
+            ? ctHeader
+            : (mountPath.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase) ? "audio/ogg" : (mountPath.EndsWith(".opus", StringComparison.OrdinalIgnoreCase) ? "audio/opus" : "audio/mpeg"));
+
         int bitrate = 320;
         if (headers.TryGetValue("ice-bitrate", out var brStr) && int.TryParse(brStr, out var br)) bitrate = br;
         else if (headers.TryGetValue("icy-br", out var icyBr) && int.TryParse(icyBr, out var ibr)) bitrate = ibr;
@@ -258,7 +289,7 @@ public class AudioStreamServer
 
         mount.StreamDescription = streamDesc;
         mount.SetSourceConnected(clientIp, userAgent, contentType, bitrate, streamName, streamGenre);
-        OnSourceConnected?.Invoke(mountPath, clientIp);
+        OnSourceConnected?.Invoke(mount.MountPath, clientIp);
 
         // Send Icecast 2 handshake OK
         var okResponse = Encoding.Latin1.GetBytes("HTTP/1.0 200 OK\r\nServer: RTSAS/1.0\r\nConnection: Keep-Alive\r\n\r\n");
@@ -319,8 +350,7 @@ public class AudioStreamServer
 
     private async Task HandleListenerPlaybackAsync(string rawUri, Dictionary<string, string> headers, NetworkStream stream, string clientIp, string userAgent, bool isHead, CancellationToken ct)
     {
-        var mountPath = ExtractMountPath(rawUri);
-        var mount = GetMount(mountPath);
+        var mount = GetMount(rawUri);
 
         if (mount == null || !mount.IsOnline)
         {
@@ -328,7 +358,7 @@ public class AudioStreamServer
             return;
         }
 
-        bool supportsIcy = headers.TryGetValue("Icy-MetaData", out var icyVal) && icyVal == "1";
+        bool supportsIcy = !mount.IsOggStream && headers.TryGetValue("Icy-MetaData", out var icyVal) && icyVal == "1";
 
         var sb = new StringBuilder();
         sb.Append("HTTP/1.0 200 OK\r\n");
@@ -361,7 +391,7 @@ public class AudioStreamServer
         if (isHead) return;
 
         var client = mount.RegisterClient(clientIp, userAgent, supportsIcy, stream);
-        OnClientConnected?.Invoke(mountPath, clientIp);
+        OnClientConnected?.Invoke(mount.MountPath, clientIp);
 
         // Keep connection open and wait until disconnected or cancelled
         try
@@ -375,7 +405,7 @@ public class AudioStreamServer
         finally
         {
             mount.RemoveClient(client.Id);
-            OnClientDisconnected?.Invoke(mountPath, clientIp);
+            OnClientDisconnected?.Invoke(mount.MountPath, clientIp);
         }
     }
 

@@ -129,4 +129,89 @@ public class AudioStreamServerTests
             server.Stop();
         }
     }
+
+    [Fact]
+    public async Task AudioStreamServer_OggStreamIngestAndPlayback_Success()
+    {
+        int serverPort = 12155;
+        var server = new AudioStreamServer();
+        server.Start(serverPort);
+
+        try
+        {
+            // 1. Connect DJ with OGG Vorbis stream (SOURCE /rock.ogg)
+            using var djClient = new TcpClient("127.0.0.1", serverPort);
+            using var djStream = djClient.GetStream();
+
+            var sourceHandshake =
+                "SOURCE /rock.ogg HTTP/1.0\r\n" +
+                "ice-password: hackme\r\n" +
+                "ice-name: RadioTEDU Rock OGG\r\n" +
+                "Content-Type: audio/ogg\r\n" +
+                "\r\n";
+
+            await djStream.WriteAsync(Encoding.Latin1.GetBytes(sourceHandshake));
+            var djReader = new StreamReader(djStream, Encoding.Latin1);
+            var djResp = await djReader.ReadLineAsync();
+            Assert.Equal("HTTP/1.0 200 OK", djResp);
+
+            var mount = server.GetMount("/rock.ogg");
+            Assert.NotNull(mount);
+            Assert.True(mount.IsOnline);
+            Assert.True(mount.IsOggStream);
+            Assert.Equal("audio/ogg", mount.ContentType);
+
+            // 2. DJ writes simulated OggS Header Page (BOS)
+            var oggHeaderPage = new byte[]
+            {
+                0x4F, 0x67, 0x67, 0x53, // 'OggS'
+                0x00,                   // version
+                0x02,                   // BOS flag
+                0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, // granule
+                0x01, 0x02, 0x03, 0x04, // serial
+                0x00, 0x00, 0x00, 0x00, // seq 0
+                0xAA, 0xBB, 0xCC, 0xDD, // checksum
+                0x01,                   // 1 segment
+                0x05,                   // 5 bytes body
+                0x01, 0x76, 0x6F, 0x72, 0x62 // "vorb"
+            };
+
+            await djStream.WriteAsync(oggHeaderPage);
+            await Task.Delay(100);
+
+            // 3. Connect listener requesting /rock.ogg (or /rock alias)
+            using var listenerClient = new TcpClient("127.0.0.1", serverPort);
+            using var listenerStream = listenerClient.GetStream();
+
+            var listenerReq =
+                "GET /rock HTTP/1.1\r\n" +
+                "Host: 127.0.0.1\r\n" +
+                "Icy-MetaData: 1\r\n" +
+                "\r\n";
+
+            await listenerStream.WriteAsync(Encoding.Latin1.GetBytes(listenerReq));
+            var listenerReader = new StreamReader(listenerStream, Encoding.Latin1);
+            var respLine = await listenerReader.ReadLineAsync();
+            Assert.Equal("HTTP/1.0 200 OK", respLine);
+
+            // Verify headers sent to listener indicate audio/ogg and NO icy-metaint
+            string? line;
+            bool foundOggType = false;
+            bool foundIcyMeta = false;
+            while (!string.IsNullOrEmpty(line = await listenerReader.ReadLineAsync()))
+            {
+                if (line.StartsWith("Content-Type: audio/ogg", StringComparison.OrdinalIgnoreCase))
+                    foundOggType = true;
+                if (line.StartsWith("icy-metaint:", StringComparison.OrdinalIgnoreCase))
+                    foundIcyMeta = true;
+            }
+
+            Assert.True(foundOggType);
+            Assert.False(foundIcyMeta); // ICY metadata must NOT be injected into Ogg
+        }
+        finally
+        {
+            server.Stop();
+        }
+    }
 }
