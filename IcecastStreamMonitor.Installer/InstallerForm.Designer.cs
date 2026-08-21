@@ -44,7 +44,7 @@ partial class InstallerForm
         this.pnlSide.Location = new System.Drawing.Point(0, 0);
         this.pnlSide.Name = "pnlSide";
         this.pnlSide.Padding = new System.Windows.Forms.Padding(16);
-        this.pnlSide.Size = new System.Drawing.Size(180, 411);
+        this.pnlSide.Size = new System.Drawing.Size(190, 520);
         this.pnlSide.TabIndex = 0;
         // 
         // lblStep4
@@ -52,7 +52,7 @@ partial class InstallerForm
         this.lblStep4.AutoSize = true;
         this.lblStep4.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep4.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep4.Location = new System.Drawing.Point(16, 195);
+        this.lblStep4.Location = new System.Drawing.Point(16, 210);
         this.lblStep4.Name = "lblStep4";
         this.lblStep4.Size = new System.Drawing.Size(89, 17);
         this.lblStep4.TabIndex = 4;
@@ -63,7 +63,7 @@ partial class InstallerForm
         this.lblStep3.AutoSize = true;
         this.lblStep3.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep3.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep3.Location = new System.Drawing.Point(16, 155);
+        this.lblStep3.Location = new System.Drawing.Point(16, 165);
         this.lblStep3.Name = "lblStep3";
         this.lblStep3.Size = new System.Drawing.Size(117, 17);
         this.lblStep3.TabIndex = 3;
@@ -74,11 +74,11 @@ partial class InstallerForm
         this.lblStep2.AutoSize = true;
         this.lblStep2.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStep2.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(148)))), ((int)(((byte)(163)))), ((int)(((byte)(184)))));
-        this.lblStep2.Location = new System.Drawing.Point(16, 115);
+        this.lblStep2.Location = new System.Drawing.Point(16, 120);
         this.lblStep2.Name = "lblStep2";
-        this.lblStep2.Size = new System.Drawing.Size(120, 17);
+        this.lblStep2.Size = new System.Drawing.Size(145, 17);
         this.lblStep2.TabIndex = 2;
-        this.lblStep2.Text = "2. Stream Server IP";
+        this.lblStep2.Text = "2. Server && Credentials";
         // 
         // lblStep1
         // 
@@ -97,7 +97,7 @@ partial class InstallerForm
         this.lblSideTitle.ForeColor = System.Drawing.Color.White;
         this.lblSideTitle.Location = new System.Drawing.Point(16, 16);
         this.lblSideTitle.Name = "lblSideTitle";
-        this.lblSideTitle.Size = new System.Drawing.Size(148, 48);
+        this.lblSideTitle.Size = new System.Drawing.Size(158, 48);
         this.lblSideTitle.TabIndex = 0;
         this.lblSideTitle.Text = "RADIOTEDU Setup Wizard";
         // 
@@ -108,18 +108,18 @@ partial class InstallerForm
         this.pnlBottom.Controls.Add(this.btnNext);
         this.pnlBottom.Controls.Add(this.btnCancel);
         this.pnlBottom.Dock = System.Windows.Forms.DockStyle.Bottom;
-        this.pnlBottom.Location = new System.Drawing.Point(180, 363);
+        this.pnlBottom.Location = new System.Drawing.Point(190, 472);
         this.pnlBottom.Name = "pnlBottom";
-        this.pnlBottom.Size = new System.Drawing.Size(484, 48);
+        this.pnlBottom.Size = new System.Drawing.Size(570, 48);
         this.pnlBottom.TabIndex = 1;
         // 
         // btnBack
         // 
         this.btnBack.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
         this.btnBack.Enabled = false;
-        this.btnBack.Location = new System.Drawing.Point(220, 10);
+        this.btnBack.Location = new System.Drawing.Point(295, 10);
         this.btnBack.Name = "btnBack";
-        this.btnBack.Size = new System.Drawing.Size(75, 28);
+        this.btnBack.Size = new System.Drawing.Size(80, 28);
         this.btnBack.TabIndex = 0;
         this.btnBack.Text = "< Back";
         this.btnBack.UseVisualStyleBackColor = true;
@@ -129,9 +129,9 @@ partial class InstallerForm
         // 
         this.btnNext.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
         this.btnNext.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-        this.btnNext.Location = new System.Drawing.Point(305, 10);
+        this.btnNext.Location = new System.Drawing.Point(385, 10);
         this.btnNext.Name = "btnNext";
-        this.btnNext.Size = new System.Drawing.Size(85, 28);
+        this.btnNext.Size = new System.Drawing.Size(95, 28);
         this.btnNext.TabIndex = 1;
         this.btnNext.Text = "Next >";
         this.btnNext.UseVisualStyleBackColor = true;
@@ -140,7 +140,7 @@ partial class InstallerForm
         // btnCancel
         // 
         this.btnCancel.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
-        this.btnCancel.Location = new System.Drawing.Point(397, 10);
+        this.btnCancel.Location = new System.Drawing.Point(487, 10);
         this.btnCancel.Name = "btnCancel";
         this.btnCancel.Size = new System.Drawing.Size(75, 28);
         this.btnCancel.TabIndex = 2;
@@ -152,17 +152,17 @@ partial class InstallerForm
         // 
         this.pnlContainer.BackColor = System.Drawing.Color.White;
         this.pnlContainer.Dock = System.Windows.Forms.DockStyle.Fill;
-        this.pnlContainer.Location = new System.Drawing.Point(180, 0);
+        this.pnlContainer.Location = new System.Drawing.Point(190, 0);
         this.pnlContainer.Name = "pnlContainer";
-        this.pnlContainer.Padding = new System.Windows.Forms.Padding(20);
-        this.pnlContainer.Size = new System.Drawing.Size(484, 363);
+        this.pnlContainer.Padding = new System.Windows.Forms.Padding(16);
+        this.pnlContainer.Size = new System.Drawing.Size(570, 472);
         this.pnlContainer.TabIndex = 2;
         // 
         // InstallerForm
         // 
         this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-        this.ClientSize = new System.Drawing.Size(664, 411);
+        this.ClientSize = new System.Drawing.Size(760, 520);
         this.Controls.Add(this.pnlContainer);
         this.Controls.Add(this.pnlBottom);
         this.Controls.Add(this.pnlSide);

@@ -25,11 +25,15 @@ public class RemoteApiClient
     public async Task<(bool Success, string ErrorMessage, RemoteUserSession? Session)> LoginAsync(
         string host, int port, string username, string password)
     {
-        BaseUrl = $"http://{host.Trim()}:{port}/api";
+        var cleanHost = host.Trim();
+        BaseUrl = $"http://{cleanHost}:{port}/api";
         try
         {
             var payload = new { username, password };
-            var json = JsonSerializer.Serialize(payload);
+            var json = JsonSerializer.Serialize(payload, new JsonSerializerOptions
+            {
+                Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
+            });
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
 
             using var response = await _httpClient.PostAsync($"{BaseUrl}/auth/login", content);
@@ -37,9 +41,31 @@ public class RemoteApiClient
 
             if (!response.IsSuccessStatusCode)
             {
-                var errDoc = JsonDocument.Parse(resJson);
-                var errMsg = errDoc.RootElement.TryGetProperty("error", out var ep) ? ep.GetString() : "Login failed.";
-                return (false, errMsg ?? "Authentication failed.", null);
+                if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
+                {
+                    return (false, "❌ Hatalı Kullanıcı Adı veya Şifre: RTSAS sunucusundaki uzaktan erişim şifrenizi kontrol edin (HTTP 401 Unauthorized).", null);
+                }
+                if (response.StatusCode == System.Net.HttpStatusCode.Forbidden)
+                {
+                    return (false, "⛔ Erişim Reddedildi: Bu kullanıcının uzaktan izleme yetkisi bulunmuyor veya hesabı devre dışı bırakılmış (HTTP 403 Forbidden).", null);
+                }
+                if (response.StatusCode == System.Net.HttpStatusCode.NotFound)
+                {
+                    return (false, $"⚠️ Endpoint Bulunamadı: '{cleanHost}:{port}' üzerinde RTSAS Remote API servisi aktif değil veya port yanlış (HTTP 404 Not Found).", null);
+                }
+
+                try
+                {
+                    using var errDoc = JsonDocument.Parse(resJson);
+                    var errMsg = errDoc.RootElement.TryGetProperty("error", out var ep) ? ep.GetString() : null;
+                    if (!string.IsNullOrEmpty(errMsg))
+                    {
+                        return (false, $"Hata ({response.StatusCode}): {errMsg}", null);
+                    }
+                }
+                catch { }
+
+                return (false, $"Giriş başarısız oldu (HTTP {(int)response.StatusCode} {response.ReasonPhrase}).", null);
             }
 
             var session = JsonSerializer.Deserialize<RemoteUserSession>(resJson, JsonOpts);
@@ -50,9 +76,17 @@ public class RemoteApiClient
 
             return (true, string.Empty, session);
         }
+        catch (HttpRequestException ex)
+        {
+            return (false, $"🌐 Sunucuya Erişilemiyor: '{cleanHost}:{port}' adresine ulaşılamadı. Lütfen sunucu IP adresini, RTSAS sunucusunun çalıştığını ve Windows Güvenlik Duvarı (Firewall) iznini kontrol edin.\n({ex.Message})", null);
+        }
+        catch (TaskCanceledException)
+        {
+            return (false, $"⏱️ Bağlantı Zaman Aşımı (Timeout): '{cleanHost}:{port}' sunucusundan yanıt alınamadı. Ağ bağlantınızı veya port yönlendirmesini kontrol edin.", null);
+        }
         catch (Exception ex)
         {
-            return (false, $"Connection error: {ex.Message}", null);
+            return (false, $"⚠️ Bağlantı hatası: {ex.Message}", null);
         }
     }
 

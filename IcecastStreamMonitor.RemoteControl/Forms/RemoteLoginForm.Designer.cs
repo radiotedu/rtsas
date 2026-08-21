@@ -157,11 +157,11 @@ partial class RemoteLoginForm
         // 
         // lblStatus
         // 
-        this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+        this.lblStatus.Font = new System.Drawing.Font("Segoe UI", 8F, System.Drawing.FontStyle.Regular, System.Drawing.GraphicsUnit.Point);
         this.lblStatus.ForeColor = System.Drawing.Color.Firebrick;
         this.lblStatus.Location = new System.Drawing.Point(20, 265);
         this.lblStatus.Name = "lblStatus";
-        this.lblStatus.Size = new System.Drawing.Size(344, 35);
+        this.lblStatus.Size = new System.Drawing.Size(344, 65);
         this.lblStatus.TabIndex = 10;
         // 
         // btnLogin
@@ -170,7 +170,7 @@ partial class RemoteLoginForm
         this.btnLogin.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
         this.btnLogin.Font = new System.Drawing.Font("Segoe UI", 9.75F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         this.btnLogin.ForeColor = System.Drawing.Color.White;
-        this.btnLogin.Location = new System.Drawing.Point(20, 305);
+        this.btnLogin.Location = new System.Drawing.Point(20, 345);
         this.btnLogin.Name = "btnLogin";
         this.btnLogin.Size = new System.Drawing.Size(240, 35);
         this.btnLogin.TabIndex = 11;
@@ -181,7 +181,7 @@ partial class RemoteLoginForm
         // btnExit
         // 
         this.btnExit.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-        this.btnExit.Location = new System.Drawing.Point(269, 305);
+        this.btnExit.Location = new System.Drawing.Point(269, 345);
         this.btnExit.Name = "btnExit";
         this.btnExit.Size = new System.Drawing.Size(95, 35);
         this.btnExit.TabIndex = 12;
@@ -196,7 +196,7 @@ partial class RemoteLoginForm
         this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
         this.BackColor = System.Drawing.Color.White;
         this.CancelButton = this.btnExit;
-        this.ClientSize = new System.Drawing.Size(384, 356);
+        this.ClientSize = new System.Drawing.Size(384, 395);
         this.Controls.Add(this.btnExit);
         this.Controls.Add(this.btnLogin);
         this.Controls.Add(this.lblStatus);

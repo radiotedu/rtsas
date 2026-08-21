@@ -17,6 +17,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\IcecastStreamMonitor\IcecastStreamMonitor.csproj" />
+    <ProjectReference Include="..\IcecastStreamMonitor.RemoteControl\IcecastStreamMonitor.RemoteControl.csproj" />
   </ItemGroup>
 
   <ItemGroup>

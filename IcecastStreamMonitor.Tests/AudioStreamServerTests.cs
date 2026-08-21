@@ -240,5 +240,152 @@ public class AudioStreamServerTests
         mount.UpdateTitle("Dua Lipa - Levitating");
         Assert.Equal("Dua Lipa - Levitating", mount.StreamTitle);
     }
+
+    [Fact]
+    public void SecurityHelper_SpecialCharactersAndPasswordHashing_Success()
+    {
+        var specialPass = "<Admin@P@ss<w0rd>&More>";
+        var hash = SecurityHelper.HashPassword(specialPass);
+
+        Assert.True(SecurityHelper.VerifyPassword(specialPass, hash));
+        Assert.False(SecurityHelper.VerifyPassword("<WrongPassword>", hash));
+
+        var encrypted = SecurityHelper.EncryptSecret(specialPass);
+        var decrypted = SecurityHelper.DecryptSecret(encrypted);
+        Assert.Equal(specialPass, decrypted);
+    }
+
+    [Fact]
+    public async Task AudioStreamServer_SpecialCharacterPasswordsAndXmlEscaping_Success()
+    {
+        int serverPort = 12156;
+        var server = new AudioStreamServer
+        {
+            DefaultSourcePassword = "<Radio<Stream>Pass#99>",
+            AdminPassword = "<Master<Admin>Key!>"
+        };
+        server.Start(serverPort);
+
+        try
+        {
+            // 1. Connect DJ Source with <> in password
+            using var djClient = new TcpClient("127.0.0.1", serverPort);
+            using var djStream = djClient.GetStream();
+
+            var authBytes = Encoding.UTF8.GetBytes($"source:<Radio<Stream>Pass#99>");
+            var sourceHandshake =
+                "SOURCE /rock HTTP/1.0\r\n" +
+                $"Authorization: Basic {Convert.ToBase64String(authBytes)}\r\n" +
+                "ice-name: RadioTEDU Rock <Station>\r\n" +
+                "ice-bitrate: 320\r\n" +
+                "Content-Type: audio/mpeg\r\n" +
+                "\r\n";
+
+            var sourceBytes = Encoding.Latin1.GetBytes(sourceHandshake);
+            await djStream.WriteAsync(sourceBytes, 0, sourceBytes.Length);
+
+            var djReader = new StreamReader(djStream, Encoding.Latin1);
+            var djResp = await djReader.ReadLineAsync();
+            Assert.Equal("HTTP/1.0 200 OK", djResp);
+
+            var mount = server.GetMount("/rock");
+            Assert.NotNull(mount);
+            Assert.True(mount.IsOnline);
+
+            // 2. Query stats.xml and verify XML escaping of <>
+            using var httpClient = new HttpClient();
+            var xmlStats = await httpClient.GetStringAsync($"http://127.0.0.1:{serverPort}/admin/stats.xml");
+            Assert.Contains("&lt;Station&gt;", xmlStats);
+        }
+        finally
+        {
+            server.Stop();
+        }
+    }
+
+    [Fact]
+    public async Task RemoteApi_MultiMachineSimulation_LoginAndErrorDiagnostics_Success()
+    {
+        var settings = new AppSettings
+        {
+            RemoteServerEnabled = true,
+            RemoteServerPort = 18080,
+            RemoteUsers = new List<RemoteUser>
+            {
+                new RemoteUser
+                {
+                    Username = "remoteadmin",
+                    PasswordHash = SecurityHelper.HashPassword("<Remote<Key>#2026>"),
+                    RoleName = "SuperAdmin",
+                    IsActive = true,
+                    Permissions = new RemotePermissions
+                    {
+                        CanViewStatus = true,
+                        CanViewLogs = true,
+                        CanViewListenerIps = true,
+                        CanRefreshStreams = true,
+                        CanManageChannels = true,
+                        CanViewAuditLogs = true
+                    }
+                },
+                new RemoteUser
+                {
+                    Username = "disableduser",
+                    PasswordHash = SecurityHelper.HashPassword("anypass"),
+                    RoleName = "Viewer",
+                    IsActive = false,
+                    Permissions = new RemotePermissions()
+                }
+            }
+        };
+
+        var history = new StreamHistoryService();
+        var audit = new AuditLogService();
+        var monitor = new StreamMonitorService();
+
+        using var apiService = new RemoteApiService(
+            settings,
+            () => new Dictionary<Guid, StreamStatus>(),
+            () => Task.CompletedTask,
+            history,
+            monitor,
+            audit,
+            () => { });
+
+        apiService.Start();
+
+        try
+        {
+            var client = new IcecastStreamMonitor.RemoteControl.Services.RemoteApiClient();
+
+            // 1. Success login from simulated Computer B with special <> password
+            var (success, errMsg, session) = await client.LoginAsync("127.0.0.1", 18080, "remoteadmin", "<Remote<Key>#2026>");
+            Assert.True(success);
+            Assert.NotNull(session);
+            Assert.Equal("remoteadmin", session.Username);
+            Assert.Equal("SuperAdmin", session.Role);
+
+            // 2. Failed login with wrong password -> Returns distinct 401 message
+            var (fail1, err401, _) = await client.LoginAsync("127.0.0.1", 18080, "remoteadmin", "<WrongPassword>");
+            Assert.False(fail1);
+            Assert.Contains("Hatalı Kullanıcı Adı veya Şifre", err401);
+            Assert.Contains("401", err401);
+
+            // 3. Failed login with disabled user -> Returns distinct 401/403 message
+            var (fail2, errInactive, _) = await client.LoginAsync("127.0.0.1", 18080, "disableduser", "anypass");
+            Assert.False(fail2);
+            Assert.Contains("401", errInactive);
+
+            // 4. Failed login with unreachable host/port -> Returns distinct connection / firewall guidance
+            var (fail3, errHost, _) = await client.LoginAsync("127.0.0.1", 19999, "remoteadmin", "pass");
+            Assert.False(fail3);
+            Assert.Contains("Sunucuya Erişilemiyor", errHost);
+        }
+        finally
+        {
+            apiService.Stop();
+        }
+    }
 }
+
 
