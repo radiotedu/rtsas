@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="IcecastStreamMonitor.Installer/IcecastStreamMonitor.Installer.csproj" />
+  <Project Path="IcecastStreamMonitor.RemoteControl/IcecastStreamMonitor.RemoteControl.csproj" />
+  <Project Path="IcecastStreamMonitor.Tests/IcecastStreamMonitor.Tests.csproj" />
+  <Project Path="IcecastStreamMonitor/IcecastStreamMonitor.csproj" />
+</Solution>

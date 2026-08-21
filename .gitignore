@@ -1,0 +1,27 @@
+## .NET / C# Build Outputs
+bin/
+obj/
+publish/
+installer-publish/
+remote-control-publish/
+out/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+## IDEs & Editors
+.vs/
+.idea/
+.vscode/
+*.DotSettings.user
+
+## OS Files & Temporary Logs
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.log
+*.tmp
+*.temp
+config.json.tmp

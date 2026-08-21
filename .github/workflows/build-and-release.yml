@@ -1,0 +1,48 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+
+    - name: Restore Dependencies
+      run: dotnet restore IcecastStreamMonitor.slnx
+
+    - name: Run Unit Tests
+      run: dotnet test IcecastStreamMonitor.slnx --configuration Release --no-restore
+
+    - name: Publish Main Application
+      run: |
+        dotnet publish IcecastStreamMonitor/IcecastStreamMonitor.csproj -c Release -r win-x64 --self-contained false -o ./publish
+
+    - name: Publish Installer Wizard
+      run: |
+        dotnet publish IcecastStreamMonitor.Installer/IcecastStreamMonitor.Installer.csproj -c Release -r win-x64 --self-contained false -o ./installer-publish
+        Copy-Item -Path ./publish/* -Destination ./installer-publish/ -Recurse -Force
+        Compress-Archive -Path ./installer-publish/* -DestinationPath ./IcecastStreamMonitor-Setup.zip
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      if: startsWith(github.ref, 'refs/tags/')
+      with:
+        files: |
+          ./installer-publish/IcecastStreamMonitor.Installer.exe
+          ./IcecastStreamMonitor-Setup.zip
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
