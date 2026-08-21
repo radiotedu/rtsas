@@ -244,6 +244,7 @@ public partial class RemoteMainForm : Form
         }
 
         using var dlg = new RemoteAnalyticsDialog(channel, _apiClient);
+        ThemeService.ApplyTheme(dlg, _isDarkMode);
         dlg.ShowDialog(this);
     }
 
@@ -263,6 +264,7 @@ public partial class RemoteMainForm : Form
         }
 
         using var dlg = new RemoteListenersDialog(channel, _apiClient);
+        ThemeService.ApplyTheme(dlg, _isDarkMode);
         dlg.ShowDialog(this);
     }
 

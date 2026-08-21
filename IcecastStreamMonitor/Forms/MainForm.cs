@@ -507,6 +507,7 @@ public partial class MainForm : Form
         };
 
         using var dlg = new ChannelEditDialog(newChannel, _settings.DefaultPassword, _monitorService);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         if (dlg.ShowDialog(this) == DialogResult.OK)
         {
             _settings.Channels.Add(dlg.Channel);
@@ -522,6 +523,7 @@ public partial class MainForm : Form
     private void BtnImportTinyIce_Click(object? sender, EventArgs e)
     {
         using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, "Import TinyIce Configuration");
+        ThemeService.ApplyTheme(authDlg, _settings.DarkModeEnabled);
         if (authDlg.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -612,6 +614,7 @@ public partial class MainForm : Form
 
         // Per-channel admin authentication challenge
         using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, selectedChannel.Name);
+        ThemeService.ApplyTheme(authDlg, _settings.DarkModeEnabled);
         if (authDlg.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -620,6 +623,7 @@ public partial class MainForm : Form
         var oldClone = selectedChannel.Clone();
 
         using var dlg = new ChannelEditDialog(selectedChannel, _settings.DefaultPassword, _monitorService);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         if (dlg.ShowDialog(this) == DialogResult.OK)
         {
             var updated = dlg.Channel;
@@ -652,6 +656,7 @@ public partial class MainForm : Form
 
         // Admin authentication challenge before deletion
         using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, $"Delete '{selectedChannel.Name}'");
+        ThemeService.ApplyTheme(authDlg, _settings.DarkModeEnabled);
         if (authDlg.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -714,6 +719,7 @@ public partial class MainForm : Form
 
         var status = _statusCache.GetValueOrDefault(selectedChannel.Id);
         using var dlg = new StreamAnalyticsDialog(selectedChannel, _historyService, status);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         dlg.ShowDialog(this);
     }
 
@@ -726,6 +732,7 @@ public partial class MainForm : Form
         }
 
         using var dlg = new ListenerListDialog(selectedChannel, _settings.DefaultPassword, _monitorService);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         dlg.ShowDialog(this);
     }
 
@@ -742,6 +749,7 @@ public partial class MainForm : Form
     private void BtnSettings_Click(object? sender, EventArgs e)
     {
         using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, "Global Settings");
+        ThemeService.ApplyTheme(authDlg, _settings.DarkModeEnabled);
         if (authDlg.ShowDialog(this) != DialogResult.OK)
         {
             return;
@@ -756,6 +764,7 @@ public partial class MainForm : Form
         };
 
         using var dlg = new GlobalSettingsDialog(_settings);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         if (dlg.ShowDialog(this) == DialogResult.OK)
         {
             _configService.SaveSettings(_settings);
@@ -775,12 +784,14 @@ public partial class MainForm : Form
     private void BtnRemoteUsers_Click(object? sender, EventArgs e)
     {
         using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, "Remote Users Management");
+        ThemeService.ApplyTheme(authDlg, _settings.DarkModeEnabled);
         if (authDlg.ShowDialog(this) != DialogResult.OK)
         {
             return;
         }
 
         using var dlg = new RemoteUsersDialog(_settings);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         if (dlg.ShowDialog(this) == DialogResult.OK)
         {
             _configService.SaveSettings(_settings);
@@ -845,7 +856,7 @@ public partial class MainForm : Form
             _mockServer = null;
 
             btnToolMockServer.Text = "⚡ Start Local Demo Feed";
-            btnToolMockServer.BackColor = SystemColors.Control;
+            btnToolMockServer.BackColor = _settings.DarkModeEnabled ? ThemeService.DarkCard : SystemColors.Control;
             statusLabelMain.Text = "Local Demo Server stopped";
             _auditLogService.Log(AuditCategory.System, "Mock Server", "Demo Stopped", "Local simulated stream server stopped.");
         }
@@ -857,7 +868,7 @@ public partial class MainForm : Form
                 _mockServer.Start();
 
                 btnToolMockServer.Text = "⚡ Stop Demo Feed (:8000)";
-                btnToolMockServer.BackColor = Color.LightGreen;
+                btnToolMockServer.BackColor = _settings.DarkModeEnabled ? ThemeService.DarkAccent : Color.LightGreen;
                 statusLabelMain.Text = "Local Demo Server running on http://127.0.0.1:8000";
                 _auditLogService.Log(AuditCategory.System, "Mock Server", "Demo Started", "Local simulated Icecast/SHOUTcast stream server started on port 8000.");
 
@@ -1070,6 +1081,7 @@ public partial class MainForm : Form
     private void BtnCheckUpdates_Click(object? sender, EventArgs e)
     {
         using var dlg = new UpdateCheckDialog(_updateService);
+        ThemeService.ApplyTheme(dlg, _settings.DarkModeEnabled);
         dlg.ShowDialog(this);
     }
 

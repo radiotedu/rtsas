@@ -222,9 +222,9 @@ public class AudioStreamServerTests
         Assert.Equal(24, ThemeService.DarkBg.G);
         Assert.Equal(27, ThemeService.DarkBg.B);
 
-        Assert.Equal(39, ThemeService.DarkSurface.R);
-        Assert.Equal(39, ThemeService.DarkSurface.G);
-        Assert.Equal(42, ThemeService.DarkSurface.B);
+        Assert.Equal(34, ThemeService.DarkSurface.R);
+        Assert.Equal(34, ThemeService.DarkSurface.G);
+        Assert.Equal(38, ThemeService.DarkSurface.B);
 
         Assert.Equal(244, ThemeService.DarkText.R);
         Assert.Equal(244, ThemeService.DarkText.G);

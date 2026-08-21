@@ -16,6 +16,7 @@ public partial class RemoteLoginForm : Form
         }
         catch { }
         _apiClient = new RemoteApiClient();
+        ThemeService.ApplyTheme(this, true);
     }
 
     private void ChkShowPassword_CheckedChanged(object? sender, EventArgs e)
