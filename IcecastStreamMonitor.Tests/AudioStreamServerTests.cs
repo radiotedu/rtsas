@@ -214,4 +214,31 @@ public class AudioStreamServerTests
             server.Stop();
         }
     }
+
+    [Fact]
+    public void ThemeService_ColorsAndDarkPalette_AreValid()
+    {
+        Assert.Equal(24, ThemeService.DarkBg.R);
+        Assert.Equal(24, ThemeService.DarkBg.G);
+        Assert.Equal(27, ThemeService.DarkBg.B);
+
+        Assert.Equal(39, ThemeService.DarkSurface.R);
+        Assert.Equal(39, ThemeService.DarkSurface.G);
+        Assert.Equal(42, ThemeService.DarkSurface.B);
+
+        Assert.Equal(244, ThemeService.DarkText.R);
+        Assert.Equal(244, ThemeService.DarkText.G);
+        Assert.Equal(245, ThemeService.DarkText.B);
+    }
+
+    [Fact]
+    public void MountPointStream_UpdateTitle_ChangesStreamTitleAndFrame()
+    {
+        var mount = new MountPointStream("/pop");
+        Assert.Equal("RadioTEDU Live Broadcast", mount.StreamTitle);
+
+        mount.UpdateTitle("Dua Lipa - Levitating");
+        Assert.Equal("Dua Lipa - Levitating", mount.StreamTitle);
+    }
 }
+

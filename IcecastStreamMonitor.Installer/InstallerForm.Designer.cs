@@ -99,7 +99,7 @@ partial class InstallerForm
         this.lblSideTitle.Name = "lblSideTitle";
         this.lblSideTitle.Size = new System.Drawing.Size(148, 48);
         this.lblSideTitle.TabIndex = 0;
-        this.lblSideTitle.Text = "Stream Monitor Setup Wizard";
+        this.lblSideTitle.Text = "RADIOTEDU Setup Wizard";
         // 
         // pnlBottom
         // 
@@ -119,7 +119,7 @@ partial class InstallerForm
         this.btnBack.Enabled = false;
         this.btnBack.Location = new System.Drawing.Point(220, 10);
         this.btnBack.Name = "btnBack";
-        this.btnBack.Size = new System.Drawing.Size(80, 28);
+        this.btnBack.Size = new System.Drawing.Size(75, 28);
         this.btnBack.TabIndex = 0;
         this.btnBack.Text = "< Back";
         this.btnBack.UseVisualStyleBackColor = true;
@@ -129,7 +129,7 @@ partial class InstallerForm
         // 
         this.btnNext.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Bottom | System.Windows.Forms.AnchorStyles.Right)));
         this.btnNext.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-        this.btnNext.Location = new System.Drawing.Point(306, 10);
+        this.btnNext.Location = new System.Drawing.Point(305, 10);
         this.btnNext.Name = "btnNext";
         this.btnNext.Size = new System.Drawing.Size(85, 28);
         this.btnNext.TabIndex = 1;
@@ -172,7 +172,7 @@ partial class InstallerForm
         this.MinimizeBox = false;
         this.Name = "InstallerForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "Icecast & SHOUTcast Stream Monitor Setup";
+        this.Text = "RADIOTEDU Stream Audio Server — Setup Wizard";
         this.Load += new System.EventHandler(this.InstallerForm_Load);
         this.pnlSide.ResumeLayout(false);
         this.pnlSide.PerformLayout();

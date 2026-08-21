@@ -14,13 +14,24 @@ public partial class GlobalSettingsDialog : Form
         InitializeComponent();
         _settings = settings;
 
+        try
+        {
+            var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (appIcon != null) Icon = appIcon;
+        }
+        catch { }
+
         txtAdminPassword.Text = _settings.MasterAdminPassword;
         txtDefaultPassword.Text = _settings.DefaultPassword;
+        txtPublicDomain.Text = _settings.PublicDomain;
         numPollingInterval.Value = Math.Clamp(_settings.PollingIntervalSeconds, 1, 300);
         numTimeout.Value = Math.Clamp(_settings.RequestTimeoutSeconds, 1, 30);
         chkMinimizeToTray.Checked = _settings.MinimizeToTray;
         chkCloseToTray.Checked = _settings.CloseToTray;
         chkNotifyOffline.Checked = _settings.NotifyOnStreamOffline;
+        chkDarkMode.Checked = _settings.DarkModeEnabled;
+
+        ThemeService.ApplyTheme(this, _settings.DarkModeEnabled);
     }
 
     private void ChkShowAdminPassword_CheckedChanged(object? sender, EventArgs e)
@@ -43,10 +54,12 @@ public partial class GlobalSettingsDialog : Form
         }
 
         _settings.DefaultPassword = txtDefaultPassword.Text;
+        _settings.PublicDomain = string.IsNullOrWhiteSpace(txtPublicDomain.Text) ? "stream.radiotedu.com" : txtPublicDomain.Text.Trim();
         _settings.PollingIntervalSeconds = (int)numPollingInterval.Value;
         _settings.RequestTimeoutSeconds = (int)numTimeout.Value;
         _settings.MinimizeToTray = chkMinimizeToTray.Checked;
         _settings.CloseToTray = chkCloseToTray.Checked;
         _settings.NotifyOnStreamOffline = chkNotifyOffline.Checked;
+        _settings.DarkModeEnabled = chkDarkMode.Checked;
     }
 }

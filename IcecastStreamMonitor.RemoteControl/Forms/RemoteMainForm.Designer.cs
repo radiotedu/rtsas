@@ -25,6 +25,7 @@ partial class RemoteMainForm
         this.btnToolAnalytics = new System.Windows.Forms.ToolStripButton();
         this.btnToolListeners = new System.Windows.Forms.ToolStripButton();
         this.toolStripSeparator2 = new System.Windows.Forms.ToolStripSeparator();
+        this.btnToolDarkMode = new System.Windows.Forms.ToolStripButton();
         this.btnToolAddChannel = new System.Windows.Forms.ToolStripButton();
         this.btnToolDeleteChannel = new System.Windows.Forms.ToolStripButton();
         this.lblUserBadge = new System.Windows.Forms.ToolStripLabel();
@@ -43,6 +44,11 @@ partial class RemoteMainForm
         this.colLatency = new System.Windows.Forms.DataGridViewTextBoxColumn();
         this.colTitle = new System.Windows.Forms.DataGridViewTextBoxColumn();
         this.contextMenu = new System.Windows.Forms.ContextMenuStrip(this.components);
+        this.contextItemOpenBrowser = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemCopyPublicUrl = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemCopyLocalUrl = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemLocateSource = new System.Windows.Forms.ToolStripMenuItem();
+        this.toolStripSeparator0 = new System.Windows.Forms.ToolStripSeparator();
         this.menuItemAnalytics = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemListeners = new System.Windows.Forms.ToolStripMenuItem();
         this.toolStripSeparator3 = new System.Windows.Forms.ToolStripSeparator();
@@ -65,6 +71,7 @@ partial class RemoteMainForm
             this.btnToolAnalytics,
             this.btnToolListeners,
             this.toolStripSeparator2,
+            this.btnToolDarkMode,
             this.btnToolAddChannel,
             this.btnToolDeleteChannel,
             this.lblUserBadge});
@@ -108,8 +115,8 @@ partial class RemoteMainForm
         // btnToolListeners
         // 
         this.btnToolListeners.Name = "btnToolListeners";
-        this.btnToolListeners.Size = new System.Drawing.Size(139, 24);
-        this.btnToolListeners.Text = "👥 Connected Listener IPs";
+        this.btnToolListeners.Size = new System.Drawing.Size(102, 24);
+        this.btnToolListeners.Text = "👥 Listener IPs";
         this.btnToolListeners.Click += new System.EventHandler(this.BtnListeners_Click);
         // 
         // toolStripSeparator2
@@ -117,10 +124,17 @@ partial class RemoteMainForm
         this.toolStripSeparator2.Name = "toolStripSeparator2";
         this.toolStripSeparator2.Size = new System.Drawing.Size(6, 27);
         // 
+        // btnToolDarkMode
+        // 
+        this.btnToolDarkMode.Name = "btnToolDarkMode";
+        this.btnToolDarkMode.Size = new System.Drawing.Size(95, 24);
+        this.btnToolDarkMode.Text = "🌙 Dark Mode";
+        this.btnToolDarkMode.Click += new System.EventHandler(this.BtnDarkMode_Click);
+        // 
         // btnToolAddChannel
         // 
         this.btnToolAddChannel.Name = "btnToolAddChannel";
-        this.btnToolAddChannel.Size = new System.Drawing.Size(97, 24);
+        this.btnToolAddChannel.Size = new System.Drawing.Size(106, 24);
         this.btnToolAddChannel.Text = "+ Add Channel";
         this.btnToolAddChannel.Visible = false;
         this.btnToolAddChannel.Click += new System.EventHandler(this.BtnAddChannel_Click);
@@ -128,8 +142,8 @@ partial class RemoteMainForm
         // btnToolDeleteChannel
         // 
         this.btnToolDeleteChannel.Name = "btnToolDeleteChannel";
-        this.btnToolDeleteChannel.Size = new System.Drawing.Size(73, 24);
-        this.btnToolDeleteChannel.Text = "✕ Delete";
+        this.btnToolDeleteChannel.Size = new System.Drawing.Size(100, 24);
+        this.btnToolDeleteChannel.Text = "✕ Delete Channel";
         this.btnToolDeleteChannel.Visible = false;
         this.btnToolDeleteChannel.Click += new System.EventHandler(this.BtnDeleteChannel_Click);
         // 
@@ -137,10 +151,10 @@ partial class RemoteMainForm
         // 
         this.lblUserBadge.Alignment = System.Windows.Forms.ToolStripItemAlignment.Right;
         this.lblUserBadge.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
-        this.lblUserBadge.ForeColor = System.Drawing.Color.FromArgb(((int)(((byte)(15)))), ((int)(((byte)(23)))), ((int)(((byte)(42)))));
+        this.lblUserBadge.ForeColor = System.Drawing.Color.MidnightBlue;
         this.lblUserBadge.Name = "lblUserBadge";
-        this.lblUserBadge.Size = new System.Drawing.Size(175, 24);
-        this.lblUserBadge.Text = "👤 admin (Role: SuperAdmin)";
+        this.lblUserBadge.Size = new System.Drawing.Size(105, 24);
+        this.lblUserBadge.Text = "User: [admin]";
         // 
         // statusStrip
         // 
@@ -150,6 +164,7 @@ partial class RemoteMainForm
             this.statusLabelSummary});
         this.statusStrip.Location = new System.Drawing.Point(0, 519);
         this.statusStrip.Name = "statusStrip";
+        this.statusStrip.Padding = new System.Windows.Forms.Padding(1, 0, 16, 0);
         this.statusStrip.Size = new System.Drawing.Size(984, 22);
         this.statusStrip.TabIndex = 1;
         this.statusStrip.Text = "statusStrip";
@@ -157,20 +172,20 @@ partial class RemoteMainForm
         // statusLabelServer
         // 
         this.statusLabelServer.Name = "statusLabelServer";
-        this.statusLabelServer.Size = new System.Drawing.Size(201, 17);
-        this.statusLabelServer.Text = "Connected to http://127.0.0.1:8080";
+        this.statusLabelServer.Size = new System.Drawing.Size(120, 17);
+        this.statusLabelServer.Text = "Connected to Server";
         // 
         // statusLabelSpring
         // 
         this.statusLabelSpring.Name = "statusLabelSpring";
-        this.statusLabelSpring.Size = new System.Drawing.Size(653, 17);
+        this.statusLabelSpring.Size = new System.Drawing.Size(738, 17);
         this.statusLabelSpring.Spring = true;
         // 
         // statusLabelSummary
         // 
         this.statusLabelSummary.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         this.statusLabelSummary.Name = "statusLabelSummary";
-        this.statusLabelSummary.Size = new System.Drawing.Size(115, 17);
+        this.statusLabelSummary.Size = new System.Drawing.Size(109, 17);
         this.statusLabelSummary.Text = "0 Channels Online";
         // 
         // gridStreams
@@ -178,7 +193,7 @@ partial class RemoteMainForm
         this.gridStreams.AllowUserToAddRows = false;
         this.gridStreams.AllowUserToDeleteRows = false;
         this.gridStreams.AllowUserToResizeRows = false;
-        this.gridStreams.BackgroundColor = System.Drawing.SystemColors.Window;
+        this.gridStreams.BackgroundColor = System.Drawing.Color.White;
         this.gridStreams.BorderStyle = System.Windows.Forms.BorderStyle.None;
         this.gridStreams.ColumnHeadersHeightSizeMode = System.Windows.Forms.DataGridViewColumnHeadersHeightSizeMode.AutoSize;
         this.gridStreams.Columns.AddRange(new System.Windows.Forms.DataGridViewColumn[] {
@@ -198,11 +213,13 @@ partial class RemoteMainForm
         this.gridStreams.Name = "gridStreams";
         this.gridStreams.ReadOnly = true;
         this.gridStreams.RowHeadersVisible = false;
-        this.gridStreams.RowTemplate.Height = 28;
+        this.gridStreams.RowTemplate.Height = 25;
         this.gridStreams.SelectionMode = System.Windows.Forms.DataGridViewSelectionMode.FullRowSelect;
         this.gridStreams.Size = new System.Drawing.Size(984, 484);
         this.gridStreams.TabIndex = 2;
         this.gridStreams.CellDoubleClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.GridStreams_CellDoubleClick);
+        this.gridStreams.CellContentClick += new System.Windows.Forms.DataGridViewCellEventHandler(this.GridStreams_CellContentClick);
+        this.gridStreams.CellMouseDown += new System.Windows.Forms.DataGridViewCellMouseEventHandler(this.GridStreams_CellMouseDown);
         // 
         // colStatus
         // 
@@ -213,24 +230,24 @@ partial class RemoteMainForm
         // 
         // colName
         // 
-        this.colName.HeaderText = "Channel Label";
+        this.colName.HeaderText = "Feed Name";
         this.colName.Name = "colName";
         this.colName.ReadOnly = true;
         this.colName.Width = 180;
         // 
         // colMount
         // 
-        this.colMount.HeaderText = "Mount Path";
+        this.colMount.HeaderText = "Mountpoint";
         this.colMount.Name = "colMount";
         this.colMount.ReadOnly = true;
-        this.colMount.Width = 110;
+        this.colMount.Width = 120;
         // 
         // colListeners
         // 
         this.colListeners.HeaderText = "Listeners";
         this.colListeners.Name = "colListeners";
         this.colListeners.ReadOnly = true;
-        this.colListeners.Width = 85;
+        this.colListeners.Width = 80;
         // 
         // colPeak
         // 
@@ -241,10 +258,10 @@ partial class RemoteMainForm
         // 
         // colBitrate
         // 
-        this.colBitrate.HeaderText = "Bit Rate";
+        this.colBitrate.HeaderText = "Bitrate";
         this.colBitrate.Name = "colBitrate";
         this.colBitrate.ReadOnly = true;
-        this.colBitrate.Width = 85;
+        this.colBitrate.Width = 70;
         // 
         // colFormat
         // 
@@ -270,44 +287,83 @@ partial class RemoteMainForm
         // contextMenu
         // 
         this.contextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextItemOpenBrowser,
+            this.contextItemCopyPublicUrl,
+            this.contextItemCopyLocalUrl,
+            this.contextItemLocateSource,
+            this.toolStripSeparator0,
             this.menuItemAnalytics,
             this.menuItemListeners,
             this.toolStripSeparator3,
             this.menuItemRefresh,
             this.menuItemDelete});
         this.contextMenu.Name = "contextMenu";
-        this.contextMenu.Size = new System.Drawing.Size(232, 98);
+        this.contextMenu.Size = new System.Drawing.Size(260, 240);
+        // 
+        // contextItemOpenBrowser
+        // 
+        this.contextItemOpenBrowser.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+        this.contextItemOpenBrowser.Name = "contextItemOpenBrowser";
+        this.contextItemOpenBrowser.Size = new System.Drawing.Size(259, 22);
+        this.contextItemOpenBrowser.Text = "🌐 Open Stream in Browser";
+        this.contextItemOpenBrowser.Click += new System.EventHandler(this.BtnOpenBrowser_Click);
+        // 
+        // contextItemCopyPublicUrl
+        // 
+        this.contextItemCopyPublicUrl.Name = "contextItemCopyPublicUrl";
+        this.contextItemCopyPublicUrl.Size = new System.Drawing.Size(259, 22);
+        this.contextItemCopyPublicUrl.Text = "📋 Copy Public Stream URL (https://...)";
+        this.contextItemCopyPublicUrl.Click += new System.EventHandler(this.BtnCopyPublicUrl_Click);
+        // 
+        // contextItemCopyLocalUrl
+        // 
+        this.contextItemCopyLocalUrl.Name = "contextItemCopyLocalUrl";
+        this.contextItemCopyLocalUrl.Size = new System.Drawing.Size(259, 22);
+        this.contextItemCopyLocalUrl.Text = "📋 Copy Direct Server URL (http://...)";
+        this.contextItemCopyLocalUrl.Click += new System.EventHandler(this.BtnCopyLocalUrl_Click);
+        // 
+        // contextItemLocateSource
+        // 
+        this.contextItemLocateSource.Name = "contextItemLocateSource";
+        this.contextItemLocateSource.Size = new System.Drawing.Size(259, 22);
+        this.contextItemLocateSource.Text = "📍 Locate / Copy DJ Source String";
+        this.contextItemLocateSource.Click += new System.EventHandler(this.BtnLocateSource_Click);
+        // 
+        // toolStripSeparator0
+        // 
+        this.toolStripSeparator0.Name = "toolStripSeparator0";
+        this.toolStripSeparator0.Size = new System.Drawing.Size(256, 6);
         // 
         // menuItemAnalytics
         // 
         this.menuItemAnalytics.Name = "menuItemAnalytics";
-        this.menuItemAnalytics.Size = new System.Drawing.Size(231, 22);
+        this.menuItemAnalytics.Size = new System.Drawing.Size(259, 22);
         this.menuItemAnalytics.Text = "📊 View 24h Logs && Charts...";
         this.menuItemAnalytics.Click += new System.EventHandler(this.BtnAnalytics_Click);
         // 
         // menuItemListeners
         // 
         this.menuItemListeners.Name = "menuItemListeners";
-        this.menuItemListeners.Size = new System.Drawing.Size(231, 22);
+        this.menuItemListeners.Size = new System.Drawing.Size(259, 22);
         this.menuItemListeners.Text = "👥 Show Connected Client IPs...";
         this.menuItemListeners.Click += new System.EventHandler(this.BtnListeners_Click);
         // 
         // toolStripSeparator3
         // 
         this.toolStripSeparator3.Name = "toolStripSeparator3";
-        this.toolStripSeparator3.Size = new System.Drawing.Size(228, 6);
+        this.toolStripSeparator3.Size = new System.Drawing.Size(256, 6);
         // 
         // menuItemRefresh
         // 
         this.menuItemRefresh.Name = "menuItemRefresh";
-        this.menuItemRefresh.Size = new System.Drawing.Size(231, 22);
+        this.menuItemRefresh.Size = new System.Drawing.Size(259, 22);
         this.menuItemRefresh.Text = "⟳ Refresh Stream";
         this.menuItemRefresh.Click += new System.EventHandler(this.BtnRefresh_Click);
         // 
         // menuItemDelete
         // 
         this.menuItemDelete.Name = "menuItemDelete";
-        this.menuItemDelete.Size = new System.Drawing.Size(231, 22);
+        this.menuItemDelete.Size = new System.Drawing.Size(259, 22);
         this.menuItemDelete.Text = "✕ Delete Channel";
         this.menuItemDelete.Visible = false;
         this.menuItemDelete.Click += new System.EventHandler(this.BtnDeleteChannel_Click);
@@ -324,7 +380,7 @@ partial class RemoteMainForm
         this.MinimumSize = new System.Drawing.Size(750, 400);
         this.Name = "RemoteMainForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "Icecast Stream Monitor - Remote Client (Stateless)";
+        this.Text = "RADIOTEDU Stream Audio Server — Remote Control";
         this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.RemoteMainForm_FormClosing);
         this.Load += new System.EventHandler(this.RemoteMainForm_Load);
         this.toolStrip.ResumeLayout(false);
@@ -346,6 +402,7 @@ partial class RemoteMainForm
     private System.Windows.Forms.ToolStripButton btnToolAnalytics;
     private System.Windows.Forms.ToolStripButton btnToolListeners;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator2;
+    private System.Windows.Forms.ToolStripButton btnToolDarkMode;
     private System.Windows.Forms.ToolStripButton btnToolAddChannel;
     private System.Windows.Forms.ToolStripButton btnToolDeleteChannel;
     private System.Windows.Forms.ToolStripLabel lblUserBadge;
@@ -355,6 +412,11 @@ partial class RemoteMainForm
     private System.Windows.Forms.ToolStripStatusLabel statusLabelSummary;
     private System.Windows.Forms.DataGridView gridStreams;
     private System.Windows.Forms.ContextMenuStrip contextMenu;
+    private System.Windows.Forms.ToolStripMenuItem contextItemOpenBrowser;
+    private System.Windows.Forms.ToolStripMenuItem contextItemCopyPublicUrl;
+    private System.Windows.Forms.ToolStripMenuItem contextItemCopyLocalUrl;
+    private System.Windows.Forms.ToolStripMenuItem contextItemLocateSource;
+    private System.Windows.Forms.ToolStripSeparator toolStripSeparator0;
     private System.Windows.Forms.ToolStripMenuItem menuItemAnalytics;
     private System.Windows.Forms.ToolStripMenuItem menuItemListeners;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator3;

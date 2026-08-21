@@ -20,6 +20,10 @@ public class AppSettings
     public List<RemoteUser> RemoteUsers { get; set; } = new();
     public List<StreamChannel> Channels { get; set; } = new();
 
+    public string PublicDomain { get; set; } = "stream.radiotedu.com";
+    public string PublicProtocol { get; set; } = "https";
+    public bool DarkModeEnabled { get; set; } = true;
+
     public int WindowWidth { get; set; } = 950;
     public int WindowHeight { get; set; } = 560;
     public int WindowLeft { get; set; } = -1;

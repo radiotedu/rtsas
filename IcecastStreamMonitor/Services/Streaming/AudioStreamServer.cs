@@ -367,7 +367,7 @@ public class AudioStreamServer
         var sb = new StringBuilder();
         sb.Append("HTTP/1.0 200 OK\r\n");
         sb.Append($"Content-Type: {mount.ContentType}\r\n");
-        sb.Append("Server: RTSAS/1.0.2.1 (Icecast 2 Compatible)\r\n");
+        sb.Append("Server: RADIOTEDU Stream Audio Server/1.1.0 (Icecast 2 Compatible)\r\n");
         sb.Append("Connection: close\r\n");
         sb.Append("Pragma: no-cache\r\n");
         sb.Append("Cache-Control: no-cache, no-store, no-transform, must-revalidate, max-age=0\r\n");

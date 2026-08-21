@@ -35,6 +35,8 @@ partial class MainForm
         this.menuItemDelete = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemDuplicate = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemToggle = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuView = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuItemDarkMode = new System.Windows.Forms.ToolStripMenuItem();
         this.menuTools = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemAutoRefresh = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemToggleConsole = new System.Windows.Forms.ToolStripMenuItem();
@@ -54,10 +56,16 @@ partial class MainForm
         this.btnToolRefresh = new System.Windows.Forms.ToolStripButton();
         this.btnToolAutoRefresh = new System.Windows.Forms.ToolStripButton();
         this.toolStripSeparator4 = new System.Windows.Forms.ToolStripSeparator();
+        this.btnToolDarkMode = new System.Windows.Forms.ToolStripButton();
         this.btnToolSettings = new System.Windows.Forms.ToolStripButton();
         this.btnToolConsole = new System.Windows.Forms.ToolStripButton();
         this.toolStripSeparator5 = new System.Windows.Forms.ToolStripSeparator();
         this.btnToolMockServer = new System.Windows.Forms.ToolStripButton();
+        this.contextItemOpenBrowser = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemCopyPublicUrl = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemCopyLocalUrl = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextItemLocateSource = new System.Windows.Forms.ToolStripMenuItem();
+        this.contextSeparator0 = new System.Windows.Forms.ToolStripSeparator();
         this.statusStrip = new System.Windows.Forms.StatusStrip();
         this.statusLabelMain = new System.Windows.Forms.ToolStripStatusLabel();
         this.statusLabelTotalStreams = new System.Windows.Forms.ToolStripStatusLabel();
@@ -127,6 +135,7 @@ partial class MainForm
         this.menuStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuFile,
             this.menuChannels,
+            this.menuView,
             this.menuTools,
             this.menuHelp});
         this.menuStrip.Location = new System.Drawing.Point(0, 0);
@@ -267,6 +276,26 @@ partial class MainForm
         this.menuItemToggle.Text = "&Toggle Active";
         this.menuItemToggle.Click += new System.EventHandler(this.BtnToggleActive_Click);
         // 
+        // 
+        // menuView
+        // 
+        this.menuView.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.menuItemDarkMode});
+        this.menuView.Name = "menuView";
+        this.menuView.Size = new System.Drawing.Size(44, 20);
+        this.menuView.Text = "&View";
+        // 
+        // menuItemDarkMode
+        // 
+        this.menuItemDarkMode.Checked = true;
+        this.menuItemDarkMode.CheckOnClick = true;
+        this.menuItemDarkMode.CheckState = System.Windows.Forms.CheckState.Checked;
+        this.menuItemDarkMode.Name = "menuItemDarkMode";
+        this.menuItemDarkMode.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.D)));
+        this.menuItemDarkMode.Size = new System.Drawing.Size(210, 22);
+        this.menuItemDarkMode.Text = "🌙 &Dark Mode (Anthropic)";
+        this.menuItemDarkMode.Click += new System.EventHandler(this.MenuItemDarkMode_Click);
+        // 
         // menuTools
         // 
         this.menuTools.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -348,6 +377,7 @@ partial class MainForm
             this.btnToolRefresh,
             this.btnToolAutoRefresh,
             this.toolStripSeparator4,
+            this.btnToolDarkMode,
             this.btnToolSettings,
             this.btnToolConsole,
             this.toolStripSeparator5,
@@ -357,6 +387,14 @@ partial class MainForm
         this.toolStrip.Size = new System.Drawing.Size(1040, 25);
         this.toolStrip.TabIndex = 1;
         this.toolStrip.Text = "toolStrip";
+        // 
+        // btnToolDarkMode
+        // 
+        this.btnToolDarkMode.ImageTransparentColor = System.Drawing.Color.Magenta;
+        this.btnToolDarkMode.Name = "btnToolDarkMode";
+        this.btnToolDarkMode.Size = new System.Drawing.Size(95, 22);
+        this.btnToolDarkMode.Text = "🌙 Dark Mode";
+        this.btnToolDarkMode.Click += new System.EventHandler(this.MenuItemDarkMode_Click);
         // 
         // btnToolAdd
         // 
@@ -677,6 +715,11 @@ partial class MainForm
         // gridContextMenu
         // 
         this.gridContextMenu.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
+            this.contextItemOpenBrowser,
+            this.contextItemCopyPublicUrl,
+            this.contextItemCopyLocalUrl,
+            this.contextItemLocateSource,
+            this.contextSeparator0,
             this.contextItemAnalytics,
             this.contextItemListeners,
             this.contextSeparator1,
@@ -687,65 +730,98 @@ partial class MainForm
             this.contextSeparator2,
             this.contextItemRefresh});
         this.gridContextMenu.Name = "gridContextMenu";
-        this.gridContextMenu.Size = new System.Drawing.Size(236, 170);
+        this.gridContextMenu.Size = new System.Drawing.Size(260, 270);
+        // 
+        // contextItemOpenBrowser
+        // 
+        this.contextItemOpenBrowser.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
+        this.contextItemOpenBrowser.Name = "contextItemOpenBrowser";
+        this.contextItemOpenBrowser.Size = new System.Drawing.Size(259, 22);
+        this.contextItemOpenBrowser.Text = "🌐 Open Stream in Browser";
+        this.contextItemOpenBrowser.Click += new System.EventHandler(this.BtnOpenBrowser_Click);
+        // 
+        // contextItemCopyPublicUrl
+        // 
+        this.contextItemCopyPublicUrl.Name = "contextItemCopyPublicUrl";
+        this.contextItemCopyPublicUrl.Size = new System.Drawing.Size(259, 22);
+        this.contextItemCopyPublicUrl.Text = "📋 Copy Public Stream URL (https://...)";
+        this.contextItemCopyPublicUrl.Click += new System.EventHandler(this.BtnCopyPublicUrl_Click);
+        // 
+        // contextItemCopyLocalUrl
+        // 
+        this.contextItemCopyLocalUrl.Name = "contextItemCopyLocalUrl";
+        this.contextItemCopyLocalUrl.Size = new System.Drawing.Size(259, 22);
+        this.contextItemCopyLocalUrl.Text = "📋 Copy Local Port URL (http://...)";
+        this.contextItemCopyLocalUrl.Click += new System.EventHandler(this.BtnCopyLocalUrl_Click);
+        // 
+        // contextItemLocateSource
+        // 
+        this.contextItemLocateSource.Name = "contextItemLocateSource";
+        this.contextItemLocateSource.Size = new System.Drawing.Size(259, 22);
+        this.contextItemLocateSource.Text = "📍 Locate / Copy DJ Source String";
+        this.contextItemLocateSource.Click += new System.EventHandler(this.BtnLocateSource_Click);
+        // 
+        // contextSeparator0
+        // 
+        this.contextSeparator0.Name = "contextSeparator0";
+        this.contextSeparator0.Size = new System.Drawing.Size(256, 6);
         // 
         // contextItemAnalytics
         // 
-        this.contextItemAnalytics.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold, System.Drawing.GraphicsUnit.Point);
         this.contextItemAnalytics.Name = "contextItemAnalytics";
-        this.contextItemAnalytics.Size = new System.Drawing.Size(235, 22);
+        this.contextItemAnalytics.Size = new System.Drawing.Size(259, 22);
         this.contextItemAnalytics.Text = "📊 Show 24h Logs && Charts...";
         this.contextItemAnalytics.Click += new System.EventHandler(this.BtnAnalytics_Click);
         // 
         // contextItemListeners
         // 
         this.contextItemListeners.Name = "contextItemListeners";
-        this.contextItemListeners.Size = new System.Drawing.Size(235, 22);
+        this.contextItemListeners.Size = new System.Drawing.Size(259, 22);
         this.contextItemListeners.Text = "👥 Show Connected Listener IPs...";
         this.contextItemListeners.Click += new System.EventHandler(this.BtnShowListeners_Click);
         // 
         // contextSeparator1
         // 
         this.contextSeparator1.Name = "contextSeparator1";
-        this.contextSeparator1.Size = new System.Drawing.Size(232, 6);
+        this.contextSeparator1.Size = new System.Drawing.Size(256, 6);
         // 
         // contextItemEdit
         // 
         this.contextItemEdit.Name = "contextItemEdit";
-        this.contextItemEdit.Size = new System.Drawing.Size(235, 22);
+        this.contextItemEdit.Size = new System.Drawing.Size(259, 22);
         this.contextItemEdit.Text = "✎ Edit Channel...";
         this.contextItemEdit.Click += new System.EventHandler(this.BtnEdit_Click);
         // 
         // contextItemDelete
         // 
         this.contextItemDelete.Name = "contextItemDelete";
-        this.contextItemDelete.Size = new System.Drawing.Size(235, 22);
+        this.contextItemDelete.Size = new System.Drawing.Size(259, 22);
         this.contextItemDelete.Text = "✕ Delete Channel";
         this.contextItemDelete.Click += new System.EventHandler(this.BtnDelete_Click);
         // 
         // contextItemDuplicate
         // 
         this.contextItemDuplicate.Name = "contextItemDuplicate";
-        this.contextItemDuplicate.Size = new System.Drawing.Size(235, 22);
+        this.contextItemDuplicate.Size = new System.Drawing.Size(259, 22);
         this.contextItemDuplicate.Text = "D&uplicate";
         this.contextItemDuplicate.Click += new System.EventHandler(this.BtnDuplicate_Click);
         // 
         // contextItemToggle
         // 
         this.contextItemToggle.Name = "contextItemToggle";
-        this.contextItemToggle.Size = new System.Drawing.Size(235, 22);
+        this.contextItemToggle.Size = new System.Drawing.Size(259, 22);
         this.contextItemToggle.Text = "Toggle Active";
         this.contextItemToggle.Click += new System.EventHandler(this.BtnToggleActive_Click);
         // 
         // contextSeparator2
         // 
         this.contextSeparator2.Name = "contextSeparator2";
-        this.contextSeparator2.Size = new System.Drawing.Size(232, 6);
+        this.contextSeparator2.Size = new System.Drawing.Size(256, 6);
         // 
         // contextItemRefresh
         // 
         this.contextItemRefresh.Name = "contextItemRefresh";
-        this.contextItemRefresh.Size = new System.Drawing.Size(235, 22);
+        this.contextItemRefresh.Size = new System.Drawing.Size(259, 22);
         this.contextItemRefresh.Text = "⟳ Refresh Stream";
         this.contextItemRefresh.Click += new System.EventHandler(this.BtnRefresh_Click);
         // 
@@ -932,7 +1008,7 @@ partial class MainForm
         this.MinimumSize = new System.Drawing.Size(850, 480);
         this.Name = "MainForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "Icecast & SHOUTcast Live Stream Monitor";
+        this.Text = "RADIOTEDU Stream Audio Server";
         this.FormClosing += new System.Windows.Forms.FormClosingEventHandler(this.MainForm_FormClosing);
         this.Load += new System.EventHandler(this.MainForm_Load);
         this.Resize += new System.EventHandler(this.MainForm_Resize);
@@ -975,6 +1051,8 @@ partial class MainForm
     private System.Windows.Forms.ToolStripMenuItem menuItemDelete;
     private System.Windows.Forms.ToolStripMenuItem menuItemDuplicate;
     private System.Windows.Forms.ToolStripMenuItem menuItemToggle;
+    private System.Windows.Forms.ToolStripMenuItem menuView;
+    private System.Windows.Forms.ToolStripMenuItem menuItemDarkMode;
     private System.Windows.Forms.ToolStripMenuItem menuTools;
     private System.Windows.Forms.ToolStripMenuItem menuItemAutoRefresh;
     private System.Windows.Forms.ToolStripMenuItem menuItemToggleConsole;
@@ -994,6 +1072,7 @@ partial class MainForm
     private System.Windows.Forms.ToolStripButton btnToolRefresh;
     private System.Windows.Forms.ToolStripButton btnToolAutoRefresh;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator4;
+    private System.Windows.Forms.ToolStripButton btnToolDarkMode;
     private System.Windows.Forms.ToolStripButton btnToolSettings;
     private System.Windows.Forms.ToolStripButton btnToolConsole;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator5;
@@ -1021,6 +1100,11 @@ partial class MainForm
     private System.Windows.Forms.DataGridViewTextBoxColumn colLastChecked;
     private System.Windows.Forms.DataGridViewTextBoxColumn colDetails;
     private System.Windows.Forms.ContextMenuStrip gridContextMenu;
+    private System.Windows.Forms.ToolStripMenuItem contextItemOpenBrowser;
+    private System.Windows.Forms.ToolStripMenuItem contextItemCopyPublicUrl;
+    private System.Windows.Forms.ToolStripMenuItem contextItemCopyLocalUrl;
+    private System.Windows.Forms.ToolStripMenuItem contextItemLocateSource;
+    private System.Windows.Forms.ToolStripSeparator contextSeparator0;
     private System.Windows.Forms.ToolStripMenuItem contextItemAnalytics;
     private System.Windows.Forms.ToolStripMenuItem contextItemListeners;
     private System.Windows.Forms.ToolStripSeparator contextSeparator1;

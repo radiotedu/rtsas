@@ -24,7 +24,7 @@ public class UpdateService
         else
         {
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RTSAS", "1.0.2.1"));
+            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RADIOTEDU-SAS", "1.1.0"));
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
             _httpClient.Timeout = TimeSpan.FromSeconds(8);
         }

@@ -216,7 +216,7 @@ partial class RemoteLoginForm
         this.MinimizeBox = false;
         this.Name = "RemoteLoginForm";
         this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
-        this.Text = "Stream Monitor - Remote Login";
+        this.Text = "RADIOTEDU Stream Audio Server — Remote Login";
         this.pnlHeader.ResumeLayout(false);
         this.pnlHeader.PerformLayout();
         ((System.ComponentModel.ISupportInitialize)(this.numPort)).EndInit();

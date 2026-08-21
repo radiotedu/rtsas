@@ -109,6 +109,8 @@ public partial class MainForm : Form
         PopulateGrid();
         PopulateAuditLogs();
 
+        ThemeService.ApplyTheme(this, _settings.DarkModeEnabled);
+
         SyncAudioServerMounts();
         if (_settings.StreamingServerEnabled)
         {
@@ -138,6 +140,7 @@ public partial class MainForm : Form
     private void SyncAudioServerMounts()
     {
         _audioStreamServer.DefaultSourcePassword = _settings.DefaultSourcePassword;
+        _audioStreamServer.AdminPassword = _settings.MasterAdminPassword;
         _audioStreamServer.SetTrustedProxies(_settings.TrustedProxies);
 
         var existingMounts = _settings.Channels.Select(c => c.MountPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
@@ -171,7 +174,7 @@ public partial class MainForm : Form
         try
         {
             notifyIcon.Icon = this.Icon ?? SystemIcons.Application;
-            notifyIcon.Text = "Icecast Stream Monitor";
+            notifyIcon.Text = "RADIOTEDU Stream Audio Server";
             notifyIcon.Visible = true;
         }
         catch { }
@@ -206,6 +209,9 @@ public partial class MainForm : Form
         statusLabelNextRefresh.Text = _settings.AutoRefreshEnabled
             ? $"Refresh: Active ({_settings.PollingIntervalSeconds}s)"
             : "Refresh: Paused";
+
+        menuItemDarkMode.Checked = _settings.DarkModeEnabled;
+        btnToolDarkMode.Text = _settings.DarkModeEnabled ? "🌙 Dark Mode" : "☀️ Light Mode";
     }
 
     private void PopulateGrid()
@@ -229,6 +235,8 @@ public partial class MainForm : Form
         row.Cells[colEnabled.Index].Value = ch.Enabled;
         row.Cells[colName.Index].Value = string.IsNullOrWhiteSpace(ch.Name) ? ch.MountPath : ch.Name;
         row.Cells[colMount.Index].Value = ch.MountPath;
+        row.Cells[colMount.Index].Style.Font = new Font(gridStreams.Font, FontStyle.Underline);
+        row.Cells[colMount.Index].Style.ForeColor = _settings.DarkModeEnabled ? Color.FromArgb(147, 197, 253) : Color.FromArgb(29, 78, 216);
         row.Cells[colServer.Index].Value = $"{ch.Host}:{ch.Port}";
         row.Cells[colType.Index].Value = ch.ServerType.ToString();
         row.Cells[colAuth.Index].Value = ch.UseDefaultPassword ? "Default" : "Custom";
@@ -862,6 +870,72 @@ public partial class MainForm : Form
         }
     }
 
+    private void MenuItemDarkMode_Click(object? sender, EventArgs e)
+    {
+        _settings.DarkModeEnabled = !_settings.DarkModeEnabled;
+        _configService.SaveSettings(_settings);
+        SyncUiSettings();
+        ThemeService.ApplyTheme(this, _settings.DarkModeEnabled);
+    }
+
+    private string GetPublicStreamUrl(string mountPath)
+    {
+        var proto = string.IsNullOrWhiteSpace(_settings.PublicProtocol) ? "https" : _settings.PublicProtocol;
+        var domain = string.IsNullOrWhiteSpace(_settings.PublicDomain) ? "stream.radiotedu.com" : _settings.PublicDomain;
+        var cleanMount = mountPath.StartsWith('/') ? mountPath : "/" + mountPath;
+        return $"{proto}://{domain}{cleanMount}";
+    }
+
+    private void BtnOpenBrowser_Click(object? sender, EventArgs e)
+    {
+        if (gridStreams.CurrentRow?.Tag is not StreamChannel selectedChannel) return;
+        var url = GetPublicStreamUrl(selectedChannel.MountPath);
+        try
+        {
+            Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Could not open web browser: {ex.Message}", "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+    }
+
+    private void BtnCopyPublicUrl_Click(object? sender, EventArgs e)
+    {
+        if (gridStreams.CurrentRow?.Tag is not StreamChannel selectedChannel) return;
+        var url = GetPublicStreamUrl(selectedChannel.MountPath);
+        Clipboard.SetText(url);
+        statusLabelMain.Text = $"Copied Public URL: {url}";
+    }
+
+    private void BtnCopyLocalUrl_Click(object? sender, EventArgs e)
+    {
+        if (gridStreams.CurrentRow?.Tag is not StreamChannel selectedChannel) return;
+        var url = $"http://{selectedChannel.Host}:{selectedChannel.Port}{selectedChannel.MountPath}";
+        Clipboard.SetText(url);
+        statusLabelMain.Text = $"Copied Direct Server URL: {url}";
+    }
+
+    private void BtnLocateSource_Click(object? sender, EventArgs e)
+    {
+        if (gridStreams.CurrentRow?.Tag is not StreamChannel selectedChannel) return;
+        var publicUrl = GetPublicStreamUrl(selectedChannel.MountPath);
+        var directUrl = $"http://{selectedChannel.Host}:{selectedChannel.Port}{selectedChannel.MountPath}";
+        Clipboard.SetText(publicUrl);
+
+        MessageBox.Show(
+            $"📍 Sourcepoint Locate Information:\n\n" +
+            $"• Channel Name: {selectedChannel.Name}\n" +
+            $"• Mountpoint: {selectedChannel.MountPath}\n" +
+            $"• Public Listen URL: {publicUrl}\n" +
+            $"• Direct Local URL: {directUrl}\n" +
+            $"• Ingest Port: {_settings.StreamingServerPort}\n\n" +
+            $"Public URL copied to clipboard!",
+            $"Sourcepoint: {selectedChannel.Name}",
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Information);
+    }
+
     private void GridStreams_CellContentClick(object? sender, DataGridViewCellEventArgs e)
     {
         if (e.RowIndex >= 0 && e.ColumnIndex == colEnabled.Index)
@@ -877,6 +951,18 @@ public partial class MainForm : Form
                 UpdateRowDisplay(row, ch, _statusCache.GetValueOrDefault(ch.Id));
                 UpdateSummaryFooter();
                 _ = RefreshStreamsAsync(isAuto: false);
+            }
+        }
+        else if (e.RowIndex >= 0 && e.ColumnIndex == colMount.Index)
+        {
+            if (gridStreams.Rows[e.RowIndex].Tag is StreamChannel ch)
+            {
+                var url = GetPublicStreamUrl(ch.MountPath);
+                try
+                {
+                    Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                }
+                catch { }
             }
         }
     }
@@ -895,7 +981,19 @@ public partial class MainForm : Form
     {
         if (e.RowIndex >= 0)
         {
-            if (e.ColumnIndex == colListeners.Index || e.ColumnIndex == colPeak.Index)
+            if (e.ColumnIndex == colMount.Index)
+            {
+                if (gridStreams.Rows[e.RowIndex].Tag is StreamChannel ch)
+                {
+                    var url = GetPublicStreamUrl(ch.MountPath);
+                    try
+                    {
+                        Process.Start(new ProcessStartInfo { FileName = url, UseShellExecute = true });
+                    }
+                    catch { }
+                }
+            }
+            else if (e.ColumnIndex == colListeners.Index || e.ColumnIndex == colPeak.Index)
             {
                 BtnShowListeners_Click(sender, EventArgs.Empty);
             }
@@ -978,11 +1076,12 @@ public partial class MainForm : Form
     private void MenuItemAbout_Click(object? sender, EventArgs e)
     {
         MessageBox.Show(
-            $"Icecast & SHOUTcast Live Stream Monitor\n" +
+            $"RADIOTEDU Stream Audio Server (RTSAS)\n" +
             $"Version {_updateService.CurrentVersion}\n\n" +
-            "A lightweight, high-performance Windows Forms application designed to monitor live audio streams, " +
-            "concurrent listeners, audio formats, bitrates, 24h charts, and configuration change audit logs.",
-            "About Stream Monitor",
+            "A high-performance Windows audio streaming server, multi-codec stream monitor, " +
+            "remote control API, and analytics engine developed for RadioTEDU.\n\n" +
+            "Codecs supported: MP3, OGG Vorbis, OGG Opus, FLAC, AAC (ADTS).",
+            "About RADIOTEDU Stream Audio Server",
             MessageBoxButtons.OK,
             MessageBoxIcon.Information);
     }

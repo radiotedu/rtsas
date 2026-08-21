@@ -60,7 +60,7 @@ public class MountPointStream
     private readonly object _oggLock = new();
 
     private bool _metadataChanged = true;
-    private byte[] _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame("RadioTEDU Live Stream");
+    private byte[] _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame("RadioTEDU Live Broadcast");
 
     public MountPointStream(string mountPath)
     {
@@ -80,7 +80,7 @@ public class MountPointStream
     private static string DetectInitialContentType(string path)
     {
         if (path.EndsWith(".ogg", StringComparison.OrdinalIgnoreCase)) return "audio/ogg";
-        if (path.EndsWith(".opus", StringComparison.OrdinalIgnoreCase)) return "audio/opus";
+        if (path.EndsWith(".opus", StringComparison.OrdinalIgnoreCase)) return "audio/ogg; codecs=opus";
         if (path.EndsWith(".flac", StringComparison.OrdinalIgnoreCase)) return "audio/flac";
         if (path.EndsWith(".aac", StringComparison.OrdinalIgnoreCase)) return "audio/aac";
         return "audio/mpeg";
@@ -204,7 +204,7 @@ public class MountPointStream
         {
             if (client.Cts.IsCancellationRequested || client.NetworkStream == null)
             {
-                RemoveClient(client.Id);
+                KickClient(client.Id);
                 continue;
             }
 
@@ -222,7 +222,7 @@ public class MountPointStream
             }
             catch
             {
-                RemoveClient(client.Id);
+                KickClient(client.Id);
             }
         }
     }
@@ -259,11 +259,12 @@ public class MountPointStream
             }
 
             long granule = BitConverter.ToInt64(data, offset + 6);
+            int pageSeq = BitConverter.ToInt32(data, offset + 18);
             pageCount++;
             offset += totalPageSize;
 
             // In Vorbis/Opus streams, the header consists of the first 2 or 3 pages (with granule == 0)
-            if (pageCount >= 3 || (pageCount >= 2 && granule > 0))
+            if (pageCount >= 3 || (pageCount >= 2 && granule > 0) || pageSeq >= 2)
             {
                 return offset;
             }
@@ -356,7 +357,7 @@ public class MountPointStream
                 }
                 catch
                 {
-                    RemoveClient(id);
+                    KickClient(id);
                     return client;
                 }
             }
@@ -418,7 +419,7 @@ public class MountPointStream
                 }
                 catch
                 {
-                    RemoveClient(id);
+                    KickClient(id);
                 }
             }
         }
