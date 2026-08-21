@@ -774,63 +774,62 @@ public partial class InstallerForm : Form
         }
 
         progressBar.Value = 85;
-        lblInstallStatus.Text = "Configuring system preferences & shortcuts...";
+        lblInstallStatus.Text = "Finalizing installation and shortcuts...";
         await Task.Delay(100);
-        ConfigureFirewallRules((int)numServerPort.Value, (int)numRemotePort.Value);
 
         var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
         var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
 
-        // Desktop Shortcuts
-        if (chkDesktopShortcut == null || chkDesktopShortcut.Checked)
-        {
-            CreateShortcut(
-                Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "RADIOTEDU Stream Server.lnk"),
-                targetExe,
-                targetDir,
-                "RADIOTEDU Stream Audio Server & Live Monitor");
+        var desktopChecked = chkDesktopShortcut == null || chkDesktopShortcut.Checked;
+        var startMenuChecked = chkStartMenuShortcut == null || chkStartMenuShortcut.Checked;
+        var autoStartChecked = chkAutoStart != null && chkAutoStart.Checked;
+        var sPort = (int)numServerPort.Value;
+        var rPort = (int)numRemotePort.Value;
 
-            if (File.Exists(remoteExe))
-            {
-                CreateShortcut(
-                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "RADIOTEDU Remote Control.lnk"),
-                    remoteExe,
-                    targetDir,
-                    "RADIOTEDU Remote Control Companion");
-            }
-        }
-
-        // Start Menu Shortcuts
-        if (chkStartMenuShortcut == null || chkStartMenuShortcut.Checked)
-        {
-            var startMenuProg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "RADIOTEDU Stream Server");
-            Directory.CreateDirectory(startMenuProg);
-            CreateShortcut(
-                Path.Combine(startMenuProg, "RADIOTEDU Stream Server.lnk"),
-                targetExe,
-                targetDir,
-                "RADIOTEDU Stream Audio Server & Live Monitor");
-
-            if (File.Exists(remoteExe))
-            {
-                CreateShortcut(
-                    Path.Combine(startMenuProg, "RADIOTEDU Remote Control.lnk"),
-                    remoteExe,
-                    targetDir,
-                    "RADIOTEDU Remote Control Companion");
-            }
-        }
-
-        // Windows Startup
-        if (chkAutoStart != null && chkAutoStart.Checked)
+        _ = Task.Run(() =>
         {
             try
             {
-                using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
-                key?.SetValue("IcecastStreamMonitor", $"\"{targetExe}\"");
+                ConfigureFirewallRules(sPort, rPort);
+
+                if (desktopChecked)
+                {
+                    CreateShortcut(
+                        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "RADIOTEDU Stream Server.lnk"),
+                        targetExe, targetDir, "RADIOTEDU Stream Audio Server & Live Monitor");
+
+                    if (File.Exists(remoteExe))
+                    {
+                        CreateShortcut(
+                            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Desktop), "RADIOTEDU Remote Control.lnk"),
+                            remoteExe, targetDir, "RADIOTEDU Remote Control Companion");
+                    }
+                }
+
+                if (startMenuChecked)
+                {
+                    var startMenuProg = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "RADIOTEDU Stream Server");
+                    Directory.CreateDirectory(startMenuProg);
+                    CreateShortcut(
+                        Path.Combine(startMenuProg, "RADIOTEDU Stream Server.lnk"),
+                        targetExe, targetDir, "RADIOTEDU Stream Audio Server & Live Monitor");
+
+                    if (File.Exists(remoteExe))
+                    {
+                        CreateShortcut(
+                            Path.Combine(startMenuProg, "RADIOTEDU Remote Control.lnk"),
+                            remoteExe, targetDir, "RADIOTEDU Remote Control Companion");
+                    }
+                }
+
+                if (autoStartChecked)
+                {
+                    using var key = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Run", true);
+                    key?.SetValue("IcecastStreamMonitor", $"\"{targetExe}\"");
+                }
             }
             catch { }
-        }
+        });
 
         progressBar.Value = 100;
         if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
