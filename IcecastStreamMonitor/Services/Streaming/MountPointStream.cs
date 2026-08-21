@@ -47,8 +47,8 @@ public class MountPointStream
     private readonly ConcurrentDictionary<long, StreamingClient> _clients = new();
     private long _clientCounter = 0;
 
-    // Burst buffer to prevent silence on initial connect (64 KB)
-    private readonly byte[] _burstBuffer = new byte[65536];
+    // 256 KB Burst Buffer for Instant Zero-Lag Playback (~3-6 seconds of audio)
+    private readonly byte[] _burstBuffer = new byte[262144];
     private int _burstBufferWritePos = 0;
     private int _burstBufferCount = 0;
     private readonly object _burstLock = new();
@@ -213,7 +213,7 @@ public class MountPointStream
             PeakListeners = _clients.Count;
         }
 
-        // Send initial burst buffer if available
+        // Send initial burst buffer if available (Instant Playback Engine)
         lock (_burstLock)
         {
             if (_burstBufferCount > 0)
@@ -221,20 +221,38 @@ public class MountPointStream
                 try
                 {
                     int startPos = (_burstBufferWritePos - _burstBufferCount + _burstBuffer.Length) % _burstBuffer.Length;
-                    var temp = new byte[_burstBufferCount];
+                    var rawBurst = new byte[_burstBufferCount];
                     for (int i = 0; i < _burstBufferCount; i++)
                     {
-                        temp[i] = _burstBuffer[(startPos + i) % _burstBuffer.Length];
+                        rawBurst[i] = _burstBuffer[(startPos + i) % _burstBuffer.Length];
                     }
 
-                    if (client.SupportsIcyMetadata)
+                    // Find frame sync header (0xFF, 0xEx/0xFx) in first 2048 bytes for clean decoder start
+                    int syncOffset = 0;
+                    if (rawBurst.Length > 512 && (ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("mp3", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("aac", StringComparison.OrdinalIgnoreCase)))
                     {
-                        SendChunkWithIcyMetadata(client, temp, 0, temp.Length);
+                        for (int s = 0; s < Math.Min(rawBurst.Length - 4, 2048); s++)
+                        {
+                            if (rawBurst[s] == 0xFF && (rawBurst[s + 1] & 0xE0) == 0xE0)
+                            {
+                                syncOffset = s;
+                                break;
+                            }
+                        }
                     }
-                    else
+
+                    int validLength = rawBurst.Length - syncOffset;
+                    if (validLength > 0)
                     {
-                        stream.Write(temp, 0, temp.Length);
-                        client.BytesSent += temp.Length;
+                        if (client.SupportsIcyMetadata)
+                        {
+                            SendChunkWithIcyMetadata(client, rawBurst, syncOffset, validLength);
+                        }
+                        else
+                        {
+                            stream.Write(rawBurst, syncOffset, validLength);
+                            client.BytesSent += validLength;
+                        }
                     }
                 }
                 catch

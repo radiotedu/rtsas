@@ -15,6 +15,12 @@ public partial class RemoteMainForm : Form
     public RemoteMainForm(RemoteApiClient apiClient, RemoteUserSession session)
     {
         InitializeComponent();
+        try
+        {
+            var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (appIcon != null) Icon = appIcon;
+        }
+        catch { }
         _apiClient = apiClient;
         _session = session;
 

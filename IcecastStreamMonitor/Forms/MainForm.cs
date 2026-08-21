@@ -28,6 +28,17 @@ public partial class MainForm : Form
     {
         InitializeComponent();
 
+        try
+        {
+            var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (appIcon != null)
+            {
+                Icon = appIcon;
+                notifyIcon.Icon = appIcon;
+            }
+        }
+        catch { }
+
         _configService = new ConfigStorageService();
         _monitorService = new StreamMonitorService();
         _historyService = new StreamHistoryService();

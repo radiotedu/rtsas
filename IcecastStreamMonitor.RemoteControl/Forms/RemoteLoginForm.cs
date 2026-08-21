@@ -9,6 +9,12 @@ public partial class RemoteLoginForm : Form
     public RemoteLoginForm()
     {
         InitializeComponent();
+        try
+        {
+            var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (appIcon != null) Icon = appIcon;
+        }
+        catch { }
         _apiClient = new RemoteApiClient();
     }
 

@@ -40,6 +40,12 @@ public partial class InstallerForm : Form
     public InstallerForm()
     {
         InitializeComponent();
+        try
+        {
+            var appIcon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
+            if (appIcon != null) Icon = appIcon;
+        }
+        catch { }
     }
 
     private void InstallerForm_Load(object? sender, EventArgs e)
