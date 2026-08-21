@@ -28,31 +28,28 @@ jobs:
     - name: Run Unit Tests
       run: dotnet test IcecastStreamMonitor.slnx --configuration Release --no-restore
 
-    - name: Publish Host Application
+    - name: Publish Standalone Executables
       run: |
-        dotnet publish IcecastStreamMonitor/IcecastStreamMonitor.csproj -c Release -r win-x64 --self-contained false -o ./publish
+        dotnet publish IcecastStreamMonitor/IcecastStreamMonitor.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./single-publish/main
+        dotnet publish IcecastStreamMonitor.RemoteControl/IcecastStreamMonitor.RemoteControl.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./single-publish/remote
+        dotnet publish IcecastStreamMonitor.Installer/IcecastStreamMonitor.Installer.csproj -c Release -r win-x64 --self-contained false -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o ./single-publish/installer
 
-    - name: Publish Remote Control Client
+    - name: Package Release Assets
       run: |
-        dotnet publish IcecastStreamMonitor.RemoteControl/IcecastStreamMonitor.RemoteControl.csproj -c Release -r win-x64 --self-contained false -o ./remote-publish
-        Copy-Item -Path ./remote-publish/IcecastStreamMonitor.RemoteControl.exe -Destination ./publish/RTSAS-RemoteControl.exe
-
-    - name: Publish Installer Wizard & Bundle
-      run: |
-        dotnet publish IcecastStreamMonitor.Installer/IcecastStreamMonitor.Installer.csproj -c Release -r win-x64 --self-contained false -o ./installer-publish
-        Copy-Item -Path ./publish/* -Destination ./installer-publish/ -Recurse -Force
-        Copy-Item -Path ./installer-publish/IcecastStreamMonitor.Installer.exe -Destination ./RTSAS-Setup-Installer.exe
-        Copy-Item -Path ./remote-publish/IcecastStreamMonitor.RemoteControl.exe -Destination ./RTSAS-RemoteControl.exe
-        Compress-Archive -Path ./installer-publish/* -DestinationPath ./RTSAS-Full-Package.zip
+        $tag = "${{ github.ref_name }}"
+        if (-not $tag -or $tag -eq "") { $tag = "v1.0.1" }
+        Copy-Item -Path ./single-publish/installer/IcecastStreamMonitor.Installer.exe -Destination "./RTSAS-Setup-Installer-$tag.exe"
+        Copy-Item -Path ./single-publish/remote/IcecastStreamMonitor.RemoteControl.exe -Destination "./RTSAS-RemoteControl-$tag.exe"
+        Compress-Archive -Path ./single-publish/installer/IcecastStreamMonitor.Installer.exe,./single-publish/main/IcecastStreamMonitor.exe,./single-publish/remote/IcecastStreamMonitor.RemoteControl.exe -DestinationPath "./RTSAS-Full-Package-$tag.zip"
 
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v2
       if: startsWith(github.ref, 'refs/tags/')
       with:
         files: |
-          ./RTSAS-Setup-Installer.exe
-          ./RTSAS-RemoteControl.exe
-          ./RTSAS-Full-Package.zip
+          ./RTSAS-Setup-Installer-*.exe
+          ./RTSAS-RemoteControl-*.exe
+          ./RTSAS-Full-Package-*.zip
         draft: false
         prerelease: false
         generate_release_notes: true
