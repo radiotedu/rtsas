@@ -35,8 +35,6 @@ public class StreamHistoryService
             {
                 list = new List<StreamSnapshotLog>();
                 _history[channelId] = list;
-                // Seed initial 24h baseline curve for rich immediate visual display
-                SeedBaselineIfEmpty(list, channelId, status);
             }
 
             // Estimate MB transferred in this slice: (bitrate kbps / 8) / 1024 * listeners * interval_seconds
@@ -69,14 +67,12 @@ public class StreamHistoryService
     {
         lock (_lock)
         {
-            if (!_history.TryGetValue(channelId, out var list) || list.Count == 0)
+            if (_history.TryGetValue(channelId, out var list) && list.Count > 0)
             {
-                list = new List<StreamSnapshotLog>();
-                SeedBaselineIfEmpty(list, channelId, currentStatus ?? new StreamStatus { IsOnline = true, ConcurrentListeners = 120, BitRateKbps = 128 });
-                _history[channelId] = list;
+                return list.OrderBy(s => s.Timestamp).ToList();
             }
 
-            return list.OrderBy(s => s.Timestamp).ToList();
+            return new List<StreamSnapshotLog>();
         }
     }
 
@@ -85,7 +81,16 @@ public class StreamHistoryService
         var logs = Get24HourHistory(channelId);
         if (logs.Count == 0)
         {
-            return new Stream24HourMetrics();
+            return new Stream24HourMetrics
+            {
+                PeakListeners = 0,
+                MinListeners = 0,
+                AverageListeners = 0,
+                TotalMegaBytesTransferred = 0,
+                UptimePercentage = 100.0,
+                AverageLatencyMs = 0,
+                TotalSnapshots = 0
+            };
         }
 
         var onlineLogs = logs.Where(l => l.IsOnline).ToList();
@@ -112,40 +117,6 @@ public class StreamHistoryService
     {
         var cutoff = DateTime.Now.AddHours(-24);
         list.RemoveAll(l => l.Timestamp < cutoff);
-    }
-
-    private static void SeedBaselineIfEmpty(List<StreamSnapshotLog> list, Guid channelId, StreamStatus status)
-    {
-        var now = DateTime.Now;
-        var random = new Random(channelId.GetHashCode());
-        int baseListeners = status.ConcurrentListeners > 0 ? status.ConcurrentListeners : random.Next(30, 180);
-        int bitrate = status.BitRateKbps > 0 ? status.BitRateKbps : 128;
-
-        // Generate points every 15 minutes over past 24h
-        for (int i = 96; i >= 1; i--)
-        {
-            var pointTime = now.AddMinutes(-i * 15);
-            // Realistic day-night curve simulation (sinusoidal pattern with peaks in afternoon/evening)
-            double hourFactor = 0.6 + 0.4 * Math.Sin((pointTime.Hour - 6) * Math.PI / 12.0);
-            int listeners = (int)Math.Max(5, (baseListeners * hourFactor) + random.Next(-10, 12));
-            long latency = random.Next(15, 65);
-
-            double bytesPerSec = (bitrate * 1000.0 / 8.0) * listeners;
-            double mbSlice = (bytesPerSec * 900) / (1024.0 * 1024.0); // 15 min slice
-
-            list.Add(new StreamSnapshotLog
-            {
-                Timestamp = pointTime,
-                ChannelId = channelId,
-                IsOnline = true,
-                Listeners = listeners,
-                BitRateKbps = bitrate,
-                LatencyMs = latency,
-                MegaBytesTransferred = mbSlice,
-                SongTitle = "Live Broadcast Feed",
-                StatusMessage = "Online"
-            });
-        }
     }
 
     public void SaveHistory()

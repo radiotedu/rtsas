@@ -137,7 +137,7 @@ partial class StreamAnalyticsDialog
         this.lblValLatency.Name = "lblValLatency";
         this.lblValLatency.Size = new System.Drawing.Size(150, 25);
         this.lblValLatency.TabIndex = 1;
-        this.lblValLatency.Text = "24 ms";
+        this.lblValLatency.Text = "0 ms";
         // 
         // lblTitleLatency
         // 
@@ -168,7 +168,7 @@ partial class StreamAnalyticsDialog
         this.lblValUptime.Name = "lblValUptime";
         this.lblValUptime.Size = new System.Drawing.Size(150, 25);
         this.lblValUptime.TabIndex = 1;
-        this.lblValUptime.Text = "99.9 %";
+        this.lblValUptime.Text = "100.0 %";
         // 
         // lblTitleUptime
         // 
@@ -199,7 +199,7 @@ partial class StreamAnalyticsDialog
         this.lblValData.Name = "lblValData";
         this.lblValData.Size = new System.Drawing.Size(150, 25);
         this.lblValData.TabIndex = 1;
-        this.lblValData.Text = "14.25 GB";
+        this.lblValData.Text = "0.0 MB";
         // 
         // lblTitleData
         // 
@@ -230,7 +230,7 @@ partial class StreamAnalyticsDialog
         this.lblValAvg.Name = "lblValAvg";
         this.lblValAvg.Size = new System.Drawing.Size(150, 25);
         this.lblValAvg.TabIndex = 1;
-        this.lblValAvg.Text = "118.5";
+        this.lblValAvg.Text = "0";
         // 
         // lblTitleAvg
         // 
@@ -261,7 +261,7 @@ partial class StreamAnalyticsDialog
         this.lblValPeak.Name = "lblValPeak";
         this.lblValPeak.Size = new System.Drawing.Size(150, 25);
         this.lblValPeak.TabIndex = 1;
-        this.lblValPeak.Text = "240";
+        this.lblValPeak.Text = "0";
         // 
         // lblTitlePeak
         // 

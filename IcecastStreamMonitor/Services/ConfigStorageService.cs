@@ -218,40 +218,7 @@ public class ConfigStorageService
             AutoRefreshEnabled = true,
             RemoteServerEnabled = true,
             RemoteServerPort = 8080,
-            Channels = new List<StreamChannel>
-            {
-                new()
-                {
-                    Name = "Main Studio Feed (MP3 320k)",
-                    Host = "127.0.0.1",
-                    Port = 8000,
-                    MountPath = "/live",
-                    ServerType = ServerType.Icecast,
-                    UseDefaultPassword = true,
-                    Enabled = true
-                },
-                new()
-                {
-                    Name = "Lofi Chill Stream",
-                    Host = "127.0.0.1",
-                    Port = 8000,
-                    MountPath = "/lofi",
-                    ServerType = ServerType.Icecast,
-                    UseDefaultPassword = false,
-                    CustomPassword = "lofi_secret_pass",
-                    Enabled = true
-                },
-                new()
-                {
-                    Name = "Rock Radio Station",
-                    Host = "127.0.0.1",
-                    Port = 8000,
-                    MountPath = "/rock",
-                    ServerType = ServerType.Icecast,
-                    UseDefaultPassword = true,
-                    Enabled = true
-                }
-            }
+            Channels = new List<StreamChannel>()
         };
 
         EnsureDefaultRemoteUsers(settings);
