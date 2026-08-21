@@ -172,6 +172,63 @@ public partial class InstallerForm : Form
         if (txtDefaultStreamPassword == null)
             txtDefaultStreamPassword = new TextBox { Text = string.Empty, PlaceholderText = "Server Password", PasswordChar = '•', Location = new Point(95, 65), Size = new Size(105, 23) };
 
+        var btnImportTinyIce = new Button
+        {
+            Text = "📥 Import TinyIce config.json",
+            Location = new Point(210, 64),
+            Size = new Size(255, 25),
+            BackColor = Color.FromArgb(240, 246, 255),
+            FlatStyle = FlatStyle.System
+        };
+
+        btnImportTinyIce.Click += (s, e) =>
+        {
+            using var ofd = new OpenFileDialog
+            {
+                Title = "Select TinyIce config.json to Import Mounts & Port",
+                Filter = "JSON Configuration (*.json)|*.json|All Files (*.*)|*.*",
+                FileName = "config.json"
+            };
+
+            if (ofd.ShowDialog(this) == DialogResult.OK)
+            {
+                try
+                {
+                    var json = File.ReadAllText(ofd.FileName);
+                    var result = TinyIceConfigImporter.ImportFromTinyIceJson(json);
+
+                    if (result.Mounts.Count > 0)
+                    {
+                        numServerPort.Value = Math.Clamp(result.Port, 1, 65535);
+                        if (string.IsNullOrWhiteSpace(txtServerHost.Text))
+                        {
+                            txtServerHost.Text = "127.0.0.1";
+                        }
+
+                        gridMounts.Rows.Clear();
+                        foreach (var m in result.Mounts)
+                        {
+                            gridMounts.Rows.Add(m.Name, m.MountPath, "");
+                        }
+
+                        MessageBox.Show(
+                            $"Successfully imported {result.Mounts.Count} mountpoints and server port ({result.Port}) from TinyIce configuration!",
+                            "TinyIce Config Imported",
+                            MessageBoxButtons.OK,
+                            MessageBoxIcon.Information);
+                    }
+                    else
+                    {
+                        MessageBox.Show("No mountpoints found in the selected configuration file.", "Import Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Failed to parse TinyIce config: {ex.Message}", "Import Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        };
+
         var lblMountsTitle = new Label
         {
             Text = "Mountpoints / Channels (Add at least 1):",
@@ -235,7 +292,7 @@ public partial class InstallerForm : Form
             lblHeader,
             lblHost, txtServerHost, lblPort, numServerPort,
             lblAdminPass, txtMasterAdminPassword,
-            lblStreamPass, txtDefaultStreamPassword,
+            lblStreamPass, txtDefaultStreamPassword, btnImportTinyIce,
             lblMountsTitle, btnAddMount, btnRemoveMount,
             gridMounts,
             lblTip

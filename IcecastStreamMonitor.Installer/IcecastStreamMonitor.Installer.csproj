@@ -6,6 +6,11 @@
     <Nullable>enable</Nullable>
     <UseWindowsForms>true</UseWindowsForms>
     <ImplicitUsings>enable</ImplicitUsings>
+    <Version>1.0.1</Version>
+    <AssemblyVersion>1.0.1.0</AssemblyVersion>
+    <FileVersion>1.0.1.0</FileVersion>
+    <Product>RTSAS Setup Wizard</Product>
+    <Company>RadioTEDU</Company>
   </PropertyGroup>
 
   <ItemGroup Condition="Exists('..\single-publish\main\IcecastStreamMonitor.exe')">

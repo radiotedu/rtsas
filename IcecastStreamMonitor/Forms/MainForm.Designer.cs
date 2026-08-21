@@ -21,6 +21,7 @@ partial class MainForm
         this.menuStrip = new System.Windows.Forms.MenuStrip();
         this.menuFile = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemAdd = new System.Windows.Forms.ToolStripMenuItem();
+        this.menuItemImportTinyIce = new System.Windows.Forms.ToolStripMenuItem();
         this.menuItemRefresh = new System.Windows.Forms.ToolStripMenuItem();
         this.toolStripSeparator1 = new System.Windows.Forms.ToolStripSeparator();
         this.menuItemSettings = new System.Windows.Forms.ToolStripMenuItem();
@@ -138,6 +139,7 @@ partial class MainForm
         // 
         this.menuFile.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
             this.menuItemAdd,
+            this.menuItemImportTinyIce,
             this.menuItemRefresh,
             this.toolStripSeparator1,
             this.menuItemSettings,
@@ -151,15 +153,23 @@ partial class MainForm
         // 
         this.menuItemAdd.Name = "menuItemAdd";
         this.menuItemAdd.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.N)));
-        this.menuItemAdd.Size = new System.Drawing.Size(193, 22);
+        this.menuItemAdd.Size = new System.Drawing.Size(265, 22);
         this.menuItemAdd.Text = "&Add Channel...";
         this.menuItemAdd.Click += new System.EventHandler(this.BtnAdd_Click);
+        // 
+        // menuItemImportTinyIce
+        // 
+        this.menuItemImportTinyIce.Name = "menuItemImportTinyIce";
+        this.menuItemImportTinyIce.ShortcutKeys = ((System.Windows.Forms.Keys)((System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.I)));
+        this.menuItemImportTinyIce.Size = new System.Drawing.Size(265, 22);
+        this.menuItemImportTinyIce.Text = "📥 &Import from TinyIce Config...";
+        this.menuItemImportTinyIce.Click += new System.EventHandler(this.BtnImportTinyIce_Click);
         // 
         // menuItemRefresh
         // 
         this.menuItemRefresh.Name = "menuItemRefresh";
         this.menuItemRefresh.ShortcutKeys = System.Windows.Forms.Keys.F5;
-        this.menuItemRefresh.Size = new System.Drawing.Size(193, 22);
+        this.menuItemRefresh.Size = new System.Drawing.Size(265, 22);
         this.menuItemRefresh.Text = "&Refresh All";
         this.menuItemRefresh.Click += new System.EventHandler(this.BtnRefresh_Click);
         // 
@@ -951,6 +961,7 @@ partial class MainForm
     private System.Windows.Forms.MenuStrip menuStrip;
     private System.Windows.Forms.ToolStripMenuItem menuFile;
     private System.Windows.Forms.ToolStripMenuItem menuItemAdd;
+    private System.Windows.Forms.ToolStripMenuItem menuItemImportTinyIce;
     private System.Windows.Forms.ToolStripMenuItem menuItemRefresh;
     private System.Windows.Forms.ToolStripSeparator toolStripSeparator1;
     private System.Windows.Forms.ToolStripMenuItem menuItemSettings;

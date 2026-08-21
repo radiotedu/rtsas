@@ -13,7 +13,7 @@ public class UpdateService
 
     public string CurrentVersion { get; }
 
-    public UpdateService(string gitHubRepo = "orcunkilic/IcecastStreamMonitor", HttpClient? httpClient = null)
+    public UpdateService(string gitHubRepo = "radiotedu/rtsas", HttpClient? httpClient = null)
     {
         _gitHubRepo = gitHubRepo;
 
@@ -24,7 +24,7 @@ public class UpdateService
         else
         {
             _httpClient = new HttpClient();
-            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("IcecastStreamMonitor", "1.0"));
+            _httpClient.DefaultRequestHeaders.UserAgent.Add(new ProductInfoHeaderValue("RTSAS", "1.0.1"));
             _httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/vnd.github.v3+json"));
             _httpClient.Timeout = TimeSpan.FromSeconds(8);
         }

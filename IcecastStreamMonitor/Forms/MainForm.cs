@@ -500,6 +500,89 @@ public partial class MainForm : Form
         }
     }
 
+    private void BtnImportTinyIce_Click(object? sender, EventArgs e)
+    {
+        using var authDlg = new AdminAuthDialog(_settings.MasterAdminPassword, _settings.MasterAdminPasswordHash, "Import TinyIce Configuration");
+        if (authDlg.ShowDialog(this) != DialogResult.OK)
+        {
+            return;
+        }
+
+        using var ofd = new OpenFileDialog
+        {
+            Title = "Select TinyIce config.json to Import Mounts",
+            Filter = "JSON Configuration (*.json)|*.json|All Files (*.*)|*.*",
+            FileName = "config.json"
+        };
+
+        if (ofd.ShowDialog(this) == DialogResult.OK)
+        {
+            try
+            {
+                var json = File.ReadAllText(ofd.FileName);
+                var result = TinyIceConfigImporter.ImportFromTinyIceJson(json);
+
+                if (result.Channels.Count == 0)
+                {
+                    MessageBox.Show("No mounts found in the selected configuration file.", "Import Notice", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    return;
+                }
+
+                var res = MessageBox.Show(
+                    $"Found {result.Channels.Count} channels in TinyIce configuration (Port: {result.Port}).\n\n" +
+                    "Would you like to import and append these channels to your current channel list?",
+                    "Confirm TinyIce Import",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Question);
+
+                if (res == DialogResult.Yes)
+                {
+                    int addedCount = 0;
+                    var existingPaths = _settings.Channels.Select(c => c.MountPath.ToLowerInvariant()).ToHashSet();
+
+                    foreach (var ch in result.Channels)
+                    {
+                        if (!existingPaths.Contains(ch.MountPath.ToLowerInvariant()))
+                        {
+                            _settings.Channels.Add(ch);
+                            existingPaths.Add(ch.MountPath.ToLowerInvariant());
+                            addedCount++;
+                        }
+                    }
+
+                    if (result.TrustedProxies.Count > 0)
+                    {
+                        foreach (var p in result.TrustedProxies)
+                        {
+                            if (!_settings.TrustedProxies.Contains(p, StringComparer.OrdinalIgnoreCase))
+                            {
+                                _settings.TrustedProxies.Add(p);
+                            }
+                        }
+                    }
+
+                    _configService.SaveSettings(_settings);
+                    _auditLogService.Log(AuditCategory.ChannelManagement, "TinyIce Import", "Bulk Channels Imported",
+                        $"Imported {addedCount} new channels from TinyIce config file '{Path.GetFileName(ofd.FileName)}'");
+
+                    SyncAudioServerMounts();
+                    PopulateGrid();
+                    _ = RefreshStreamsAsync(isAuto: false);
+
+                    MessageBox.Show(
+                        $"Successfully imported and registered {addedCount} channels into RTSAS!",
+                        "Import Complete",
+                        MessageBoxButtons.OK,
+                        MessageBoxIcon.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Failed to parse TinyIce config: {ex.Message}", "Import Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+        }
+    }
+
     private void BtnEdit_Click(object? sender, EventArgs e)
     {
         if (gridStreams.CurrentRow?.Tag is not StreamChannel selectedChannel)
