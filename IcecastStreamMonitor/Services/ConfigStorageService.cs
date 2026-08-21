@@ -56,6 +56,15 @@ public class ConfigStorageService
                         settings.MasterAdminPasswordHash = SecurityHelper.HashPassword(settings.MasterAdminPassword);
                     }
 
+                    if (!string.IsNullOrEmpty(settings.DefaultSourcePassword))
+                    {
+                        settings.DefaultSourcePassword = SecurityHelper.DecryptSecret(settings.DefaultSourcePassword);
+                    }
+                    else
+                    {
+                        settings.DefaultSourcePassword = settings.DefaultPassword;
+                    }
+
                     foreach (var ch in settings.Channels)
                     {
                         if (!string.IsNullOrEmpty(ch.CustomPassword))
@@ -105,6 +114,10 @@ public class ConfigStorageService
                 MasterAdminPasswordHash = !string.IsNullOrEmpty(settings.MasterAdminPasswordHash)
                     ? settings.MasterAdminPasswordHash
                     : SecurityHelper.HashPassword(settings.MasterAdminPassword),
+                DefaultSourcePassword = SecurityHelper.EncryptSecret(settings.DefaultSourcePassword),
+                StreamingServerEnabled = settings.StreamingServerEnabled,
+                StreamingServerPort = settings.StreamingServerPort,
+                TrustedProxies = new List<string>(settings.TrustedProxies),
                 PollingIntervalSeconds = settings.PollingIntervalSeconds,
                 RequestTimeoutSeconds = settings.RequestTimeoutSeconds,
                 AutoRefreshEnabled = settings.AutoRefreshEnabled,

@@ -11,6 +11,7 @@ namespace IcecastStreamMonitor.Services;
 public class StreamMonitorService : IStreamMonitorService, IDisposable
 {
     private readonly HttpClient _httpClient;
+    public Streaming.AudioStreamServer? LocalServer { get; set; }
 
     public StreamMonitorService(HttpClient? httpClient = null)
     {
@@ -43,6 +44,31 @@ public class StreamMonitorService : IStreamMonitorService, IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        // 1. Direct in-memory check if matching local embedded streaming server
+        if (LocalServer != null && LocalServer.IsRunning &&
+            (channel.Host == "127.0.0.1" || channel.Host == "localhost" || channel.Host == "::1" || channel.Port == LocalServer.Port))
+        {
+            var mount = LocalServer.GetMount(channel.MountPath);
+            if (mount != null)
+            {
+                return new StreamStatus
+                {
+                    ChannelId = channel.Id,
+                    IsOnline = mount.IsOnline,
+                    ConcurrentListeners = mount.ConcurrentListeners,
+                    PeakListeners = mount.PeakListeners,
+                    BitRateKbps = mount.BitRateKbps,
+                    AudioFormat = AudioFormatHelper.NormalizeAudioFormat(mount.ContentType),
+                    RawContentType = mount.ContentType,
+                    StreamTitle = mount.StreamTitle,
+                    ServerDescription = mount.StreamDescription,
+                    LatencyMs = 0,
+                    StatusMessage = mount.IsOnline ? "Online (Live Ingest)" : "Offline (Awaiting DJ Source)",
+                    LastChecked = DateTime.Now
+                };
+            }
+        }
+
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
 
@@ -591,6 +617,17 @@ public class StreamMonitorService : IStreamMonitorService, IDisposable
         TimeSpan timeout,
         CancellationToken cancellationToken = default)
     {
+        // 1. Direct in-memory check if matching local embedded streaming server
+        if (LocalServer != null && LocalServer.IsRunning &&
+            (channel.Host == "127.0.0.1" || channel.Host == "localhost" || channel.Host == "::1" || channel.Port == LocalServer.Port))
+        {
+            var mount = LocalServer.GetMount(channel.MountPath);
+            if (mount != null)
+            {
+                return mount.GetConnectedListeners();
+            }
+        }
+
         using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         cts.CancelAfter(timeout);
 

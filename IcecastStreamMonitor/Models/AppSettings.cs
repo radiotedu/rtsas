@@ -13,6 +13,10 @@ public class AppSettings
     public bool NotifyOnStreamOffline { get; set; } = true;
     public bool RemoteServerEnabled { get; set; } = true;
     public int RemoteServerPort { get; set; } = 8080;
+    public bool StreamingServerEnabled { get; set; } = true;
+    public int StreamingServerPort { get; set; } = 11154;
+    public string DefaultSourcePassword { get; set; } = "hackme";
+    public List<string> TrustedProxies { get; set; } = new() { "127.0.0.1", "::1", "localhost" };
     public List<RemoteUser> RemoteUsers { get; set; } = new();
     public List<StreamChannel> Channels { get; set; } = new();
 

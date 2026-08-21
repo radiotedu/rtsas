@@ -14,6 +14,7 @@ public partial class MainForm : Form
     private readonly AuditLogService _auditLogService;
     private readonly UpdateService _updateService;
     private readonly RemoteApiService _remoteApiService;
+    private readonly Services.Streaming.AudioStreamServer _audioStreamServer;
 
     private AppSettings _settings;
     private readonly Dictionary<Guid, StreamStatus> _statusCache = new();
@@ -32,8 +33,24 @@ public partial class MainForm : Form
         _historyService = new StreamHistoryService();
         _auditLogService = new AuditLogService();
         _updateService = new UpdateService();
+        _audioStreamServer = new Services.Streaming.AudioStreamServer();
 
         _settings = _configService.LoadSettings();
+
+        if (_monitorService is StreamMonitorService sms)
+        {
+            sms.LocalServer = _audioStreamServer;
+        }
+
+        _audioStreamServer.OnSourceConnected += (mount, ip) =>
+        {
+            _auditLogService.Log(AuditCategory.StreamAlert, mount, "DJ Source Connected", $"Live broadcast feed started from {ip} on mount {mount}");
+        };
+
+        _audioStreamServer.OnSourceDisconnected += mount =>
+        {
+            _auditLogService.Log(AuditCategory.StreamAlert, mount, "DJ Source Disconnected", $"Live broadcast feed disconnected on mount {mount}");
+        };
 
         _remoteApiService = new RemoteApiService(
             _settings,
@@ -81,6 +98,19 @@ public partial class MainForm : Form
         PopulateGrid();
         PopulateAuditLogs();
 
+        SyncAudioServerMounts();
+        if (_settings.StreamingServerEnabled)
+        {
+            try
+            {
+                _audioStreamServer.Start(_settings.StreamingServerPort);
+            }
+            catch (Exception ex)
+            {
+                _auditLogService.Log(AuditCategory.System, "", "Server Error", $"Could not start streaming server on port {_settings.StreamingServerPort}: {ex.Message}");
+            }
+        }
+
         if (_settings.AutoRefreshEnabled)
         {
             StartAutoRefresh();
@@ -92,6 +122,26 @@ public partial class MainForm : Form
         }
 
         await RefreshStreamsAsync(isAuto: false);
+    }
+
+    private void SyncAudioServerMounts()
+    {
+        _audioStreamServer.DefaultSourcePassword = _settings.DefaultSourcePassword;
+        _audioStreamServer.SetTrustedProxies(_settings.TrustedProxies);
+
+        var existingMounts = _settings.Channels.Select(c => c.MountPath).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var ch in _settings.Channels)
+        {
+            _audioStreamServer.EnsureMount(ch.MountPath, ch.UseDefaultPassword ? _settings.DefaultSourcePassword : ch.CustomPassword, ch.Enabled);
+        }
+
+        foreach (var m in _audioStreamServer.GetAllMounts().ToList())
+        {
+            if (!existingMounts.Contains(m.MountPath))
+            {
+                _audioStreamServer.RemoveMount(m.MountPath);
+            }
+        }
     }
 
     private void SetupAuditFilter()
@@ -444,6 +494,7 @@ public partial class MainForm : Form
             _configService.SaveSettings(_settings);
             _auditLogService.LogChannelAdded(dlg.Channel);
 
+            SyncAudioServerMounts();
             PopulateGrid();
             _ = RefreshStreamsAsync(isAuto: false);
         }
@@ -482,6 +533,7 @@ public partial class MainForm : Form
             _configService.SaveSettings(_settings);
             _auditLogService.LogChannelModified(oldClone, selectedChannel);
 
+            SyncAudioServerMounts();
             UpdateRowDisplay(gridStreams.CurrentRow, selectedChannel, _statusCache.GetValueOrDefault(selectedChannel.Id));
             UpdateSummaryFooter();
             _ = RefreshStreamsAsync(isAuto: false);
@@ -516,6 +568,7 @@ public partial class MainForm : Form
             _configService.SaveSettings(_settings);
             _auditLogService.LogChannelDeleted(selectedChannel);
 
+            SyncAudioServerMounts();
             PopulateGrid();
         }
     }
@@ -530,6 +583,7 @@ public partial class MainForm : Form
         _configService.SaveSettings(_settings);
         _auditLogService.LogChannelAdded(clone);
 
+        SyncAudioServerMounts();
         PopulateGrid();
         _ = RefreshStreamsAsync(isAuto: false);
     }
@@ -542,6 +596,7 @@ public partial class MainForm : Form
         _configService.SaveSettings(_settings);
         _auditLogService.LogChannelToggled(selectedChannel, selectedChannel.Enabled);
 
+        SyncAudioServerMounts();
         UpdateRowDisplay(gridStreams.CurrentRow, selectedChannel, _statusCache.GetValueOrDefault(selectedChannel.Id));
         UpdateSummaryFooter();
         _ = RefreshStreamsAsync(isAuto: false);
@@ -857,6 +912,7 @@ public partial class MainForm : Form
 
         _pollTimer.Stop();
         _scanCts?.Cancel();
+        _audioStreamServer.Stop();
         _mockServer?.Dispose();
         _remoteApiService.Dispose();
         _historyService.SaveHistory();
