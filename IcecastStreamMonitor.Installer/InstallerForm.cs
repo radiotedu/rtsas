@@ -773,14 +773,10 @@ public partial class InstallerForm : Form
             WriteInitialSettings(targetDir);
         }
 
-        progressBar.Value = 75;
-        lblInstallStatus.Text = "Configuring Windows Defender Firewall rules for audio & remote ports...";
-        await Task.Delay(200);
-        ConfigureFirewallRules((int)numServerPort.Value, (int)numRemotePort.Value);
-
         progressBar.Value = 85;
-        lblInstallStatus.Text = "Updating shortcuts and registry entries...";
-        await Task.Delay(200);
+        lblInstallStatus.Text = "Configuring system preferences & shortcuts...";
+        await Task.Delay(100);
+        ConfigureFirewallRules((int)numServerPort.Value, (int)numRemotePort.Value);
 
         var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
         var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
@@ -854,29 +850,24 @@ public partial class InstallerForm : Form
 
     private void ConfigureFirewallRules(int streamPort, int remotePort)
     {
-        try
+        _ = Task.Run(() =>
         {
-            var psi = new ProcessStartInfo
+            try
             {
-                FileName = "netsh",
-                Arguments = $"advfirewall firewall add rule name=\"RTSAS Audio Stream Server\" dir=in action=allow protocol=TCP localport={streamPort},11154,8000 profile=any",
-                CreateNoWindow = true,
-                UseShellExecute = false
-            };
-            using var p1 = Process.Start(psi);
-            p1?.WaitForExit(2000);
-
-            var psiRemote = new ProcessStartInfo
-            {
-                FileName = "netsh",
-                Arguments = $"advfirewall firewall add rule name=\"RTSAS Remote Control API\" dir=in action=allow protocol=TCP localport={remotePort},8080 profile=any",
-                CreateNoWindow = true,
-                UseShellExecute = false
-            };
-            using var p2 = Process.Start(psiRemote);
-            p2?.WaitForExit(2000);
-        }
-        catch { }
+                var psi = new ProcessStartInfo
+                {
+                    FileName = "powershell.exe",
+                    Arguments = $"-NoProfile -NonInteractive -Command \"try {{ New-NetFirewallRule -DisplayName 'RTSAS Audio Stream Server' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {streamPort},11154,8000 -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'RTSAS Remote Control API' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {remotePort},8080 -ErrorAction SilentlyContinue }} catch {{}}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                };
+                using var proc = Process.Start(psi);
+                proc?.WaitForExit(1000);
+            }
+            catch { }
+        });
     }
 
     private void PreserveExistingSettings(string targetDir)
