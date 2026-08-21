@@ -837,6 +837,7 @@ partial class MainForm
         this.pnlConsoleHeader.Name = "pnlConsoleHeader";
         this.pnlConsoleHeader.Size = new System.Drawing.Size(1040, 30);
         this.pnlConsoleHeader.TabIndex = 0;
+        this.pnlConsoleHeader.Tag = "card";
         // 
         // lblConsoleTitle
         // 

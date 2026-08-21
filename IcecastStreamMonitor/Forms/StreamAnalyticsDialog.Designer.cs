@@ -83,6 +83,7 @@ partial class StreamAnalyticsDialog
         this.pnlHeader.Padding = new System.Windows.Forms.Padding(16, 12, 16, 12);
         this.pnlHeader.Size = new System.Drawing.Size(884, 55);
         this.pnlHeader.TabIndex = 0;
+        this.pnlHeader.Tag = "card";
         // 
         // lblStreamInfo
         // 
@@ -117,6 +118,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetrics.Padding = new System.Windows.Forms.Padding(12, 8, 12, 8);
         this.pnlMetrics.Size = new System.Drawing.Size(884, 75);
         this.pnlMetrics.TabIndex = 1;
+        this.pnlMetrics.Tag = "card";
         // 
         // pnlMetric5
         // 
@@ -128,6 +130,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric5.Name = "pnlMetric5";
         this.pnlMetric5.Size = new System.Drawing.Size(165, 58);
         this.pnlMetric5.TabIndex = 4;
+        this.pnlMetric5.Tag = "card";
         // 
         // lblValLatency
         // 
@@ -159,6 +162,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric4.Name = "pnlMetric4";
         this.pnlMetric4.Size = new System.Drawing.Size(165, 58);
         this.pnlMetric4.TabIndex = 3;
+        this.pnlMetric4.Tag = "card";
         // 
         // lblValUptime
         // 
@@ -190,6 +194,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric3.Name = "pnlMetric3";
         this.pnlMetric3.Size = new System.Drawing.Size(165, 58);
         this.pnlMetric3.TabIndex = 2;
+        this.pnlMetric3.Tag = "card";
         // 
         // lblValData
         // 
@@ -221,6 +226,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric2.Name = "pnlMetric2";
         this.pnlMetric2.Size = new System.Drawing.Size(165, 58);
         this.pnlMetric2.TabIndex = 1;
+        this.pnlMetric2.Tag = "card";
         // 
         // lblValAvg
         // 
@@ -252,6 +258,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric1.Name = "pnlMetric1";
         this.pnlMetric1.Size = new System.Drawing.Size(165, 58);
         this.pnlMetric1.TabIndex = 0;
+        this.pnlMetric1.Tag = "card";
         // 
         // lblValPeak
         // 
@@ -452,6 +459,7 @@ partial class StreamAnalyticsDialog
         this.pnlBottom.Name = "pnlBottom";
         this.pnlBottom.Size = new System.Drawing.Size(884, 50);
         this.pnlBottom.TabIndex = 3;
+        this.pnlBottom.Tag = "card";
         // 
         // btnRefresh
         // 

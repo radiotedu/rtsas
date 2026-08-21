@@ -16,6 +16,7 @@ public class HistoricalChartControl : Control
     private ChartMetricType _metricType = ChartMetricType.Listeners;
     private Point _hoverPoint = Point.Empty;
     private bool _isHovering = false;
+    private bool _isDarkMode = false;
 
     [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Visible)]
     [System.ComponentModel.DefaultValue(ChartMetricType.Listeners)]
@@ -25,6 +26,18 @@ public class HistoricalChartControl : Control
         set
         {
             _metricType = value;
+            Invalidate();
+        }
+    }
+
+    [System.ComponentModel.DesignerSerializationVisibility(System.ComponentModel.DesignerSerializationVisibility.Hidden)]
+    public bool IsDarkMode
+    {
+        get => _isDarkMode;
+        set
+        {
+            _isDarkMode = value;
+            BackColor = _isDarkMode ? Color.FromArgb(24, 24, 27) : Color.FromArgb(248, 249, 250);
             Invalidate();
         }
     }
@@ -78,9 +91,15 @@ public class HistoricalChartControl : Control
         var chartRect = new Rectangle(padLeft, padTop, Width - padLeft - padRight, Height - padTop - padBottom);
         if (chartRect.Width <= 10 || chartRect.Height <= 10) return;
 
+        var bgCardColor = _isDarkMode ? Color.FromArgb(30, 30, 35) : Color.White;
+        var borderBoxColor = _isDarkMode ? Color.FromArgb(52, 52, 58) : Color.FromArgb(220, 224, 230);
+        var gridLineColor = _isDarkMode ? Color.FromArgb(42, 42, 48) : Color.FromArgb(240, 243, 246);
+        var axisTextColor = _isDarkMode ? Color.FromArgb(161, 161, 170) : Color.FromArgb(100, 110, 125);
+        var titleTextColor = _isDarkMode ? Color.FromArgb(244, 244, 245) : Color.FromArgb(40, 50, 65);
+
         // Draw Chart Background
-        using (var bgBrush = new SolidBrush(Color.White))
-        using (var borderPen = new Pen(Color.FromArgb(220, 224, 230), 1))
+        using (var bgBrush = new SolidBrush(bgCardColor))
+        using (var borderPen = new Pen(borderBoxColor, 1))
         {
             g.FillRectangle(bgBrush, chartRect);
             g.DrawRectangle(borderPen, chartRect);
@@ -88,7 +107,7 @@ public class HistoricalChartControl : Control
 
         if (_data.Count == 0)
         {
-            using var brush = new SolidBrush(Color.Gray);
+            using var brush = new SolidBrush(_isDarkMode ? Color.FromArgb(140, 140, 150) : Color.Gray);
             var sfCenter = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
             g.DrawString("No 24-hour log data available yet.", Font, brush, chartRect, sfCenter);
             return;
@@ -114,9 +133,9 @@ public class HistoricalChartControl : Control
 
         // Draw Y-Axis Grid Lines & Labels
         int yDivisions = 5;
-        using var gridPen = new Pen(Color.FromArgb(240, 243, 246), 1);
+        using var gridPen = new Pen(gridLineColor, 1);
         using var axisFont = new Font("Segoe UI", 8F, FontStyle.Regular);
-        using var textBrush = new SolidBrush(Color.FromArgb(100, 110, 125));
+        using var textBrush = new SolidBrush(axisTextColor);
         var sfRight = new StringFormat { Alignment = StringAlignment.Far, LineAlignment = StringAlignment.Center };
 
         for (int i = 0; i <= yDivisions; i++)
@@ -157,9 +176,9 @@ public class HistoricalChartControl : Control
         // Colors based on metric type
         Color mainColor = _metricType switch
         {
-            ChartMetricType.Listeners => Color.FromArgb(0, 122, 255),       // Blue
-            ChartMetricType.DataTransferMb => Color.FromArgb(46, 170, 80),   // Green
-            ChartMetricType.LatencyMs => Color.FromArgb(235, 115, 25),      // Orange
+            ChartMetricType.Listeners => _isDarkMode ? Color.FromArgb(56, 189, 248) : Color.FromArgb(0, 122, 255),    // Sky Blue / Blue
+            ChartMetricType.DataTransferMb => _isDarkMode ? Color.FromArgb(74, 222, 128) : Color.FromArgb(46, 170, 80),// Emerald / Green
+            ChartMetricType.LatencyMs => _isDarkMode ? Color.FromArgb(251, 146, 60) : Color.FromArgb(235, 115, 25),    // Coral / Orange
             _ => Color.DodgerBlue
         };
 
@@ -188,8 +207,8 @@ public class HistoricalChartControl : Control
 
                 using var fillBrush = new LinearGradientBrush(
                     chartRect,
-                    Color.FromArgb(60, mainColor),
-                    Color.FromArgb(8, mainColor),
+                    Color.FromArgb(_isDarkMode ? 70 : 60, mainColor),
+                    Color.FromArgb(_isDarkMode ? 5 : 8, mainColor),
                     LinearGradientMode.Vertical);
                 g.FillPath(fillBrush, path);
             }
@@ -206,7 +225,7 @@ public class HistoricalChartControl : Control
         // Draw Average Line
         double avg = points.Average(p => p.Value);
         float avgY = chartRect.Bottom - (float)((avg - minVal) / (maxVal - minVal) * chartRect.Height);
-        using (var avgPen = new Pen(Color.FromArgb(140, 150, 165), 1))
+        using (var avgPen = new Pen(_isDarkMode ? Color.FromArgb(120, 120, 130) : Color.FromArgb(140, 150, 165), 1))
         {
             avgPen.DashStyle = DashStyle.Dash;
             g.DrawLine(avgPen, chartRect.Left, avgY, chartRect.Right, avgY);
@@ -233,14 +252,14 @@ public class HistoricalChartControl : Control
             var item = points[closestIdx];
 
             // Draw vertical dashed line
-            using (var crosshairPen = new Pen(Color.FromArgb(120, 130, 145), 1))
+            using (var crosshairPen = new Pen(_isDarkMode ? Color.FromArgb(140, 140, 150) : Color.FromArgb(120, 130, 145), 1))
             {
                 crosshairPen.DashStyle = DashStyle.Dot;
                 g.DrawLine(crosshairPen, pt.X, chartRect.Top, pt.X, chartRect.Bottom);
             }
 
             // Draw highlighted point circle
-            using (var dotBrush = new SolidBrush(Color.White))
+            using (var dotBrush = new SolidBrush(_isDarkMode ? Color.FromArgb(24, 24, 27) : Color.White))
             using (var dotPen = new Pen(mainColor, 3f))
             {
                 g.FillEllipse(dotBrush, pt.X - 5, pt.Y - 5, 10, 10);
@@ -267,8 +286,8 @@ public class HistoricalChartControl : Control
             if (boxY < chartRect.Top) boxY = pt.Y + 10;
 
             var tipRect = new RectangleF(boxX, boxY, boxW, boxH);
-            using var tipBg = new SolidBrush(Color.FromArgb(235, 33, 37, 41));
-            using var tipBorder = new Pen(Color.FromArgb(200, 50, 55, 60), 1);
+            using var tipBg = new SolidBrush(_isDarkMode ? Color.FromArgb(245, 18, 18, 22) : Color.FromArgb(235, 33, 37, 41));
+            using var tipBorder = new Pen(_isDarkMode ? Color.FromArgb(70, 70, 80) : Color.FromArgb(200, 50, 55, 60), 1);
             using var tipTextBrush = new SolidBrush(Color.White);
 
             g.FillRectangle(tipBg, tipRect);
@@ -285,7 +304,7 @@ public class HistoricalChartControl : Control
             _ => "Historical Metrics"
         };
         using var titleFont = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-        using var titleBrush = new SolidBrush(Color.FromArgb(40, 50, 65));
+        using var titleBrush = new SolidBrush(titleTextColor);
         g.DrawString(title, titleFont, titleBrush, padLeft, 6);
     }
 }

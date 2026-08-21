@@ -1,6 +1,7 @@
 using System.Drawing.Drawing2D;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using IcecastStreamMonitor.RemoteControl.Controls;
 
 namespace IcecastStreamMonitor.RemoteControl.Services;
 
@@ -74,6 +75,10 @@ public static class ThemeService
         {
             switch (c)
             {
+                case HistoricalChartControl chart:
+                    chart.IsDarkMode = isDark;
+                    break;
+
                 case MenuStrip menu:
                     menu.Renderer = isDark ? new DarkMenuRenderer() : new ToolStripProfessionalRenderer();
                     menu.BackColor = isDark ? DarkSurface : SystemColors.Control;
@@ -135,8 +140,13 @@ public static class ThemeService
                     break;
 
                 case TabControl tc:
-                    tc.BackColor = isDark ? DarkSurface : LightSurface;
+                    tc.DrawMode = TabDrawMode.OwnerDrawFixed;
+                    tc.ItemSize = new Size(Math.Max(120, tc.ItemSize.Width), 28);
+                    tc.SizeMode = TabSizeMode.Normal;
+                    tc.BackColor = isDark ? DarkBg : LightBg;
                     tc.ForeColor = isDark ? DarkText : LightText;
+                    tc.DrawItem -= TabControl_DrawItem;
+                    tc.DrawItem += TabControl_DrawItem;
                     foreach (TabPage tp in tc.TabPages)
                     {
                         tp.BackColor = isDark ? DarkBg : LightBg;
@@ -214,6 +224,47 @@ public static class ThemeService
         }
     }
 
+    private static void TabControl_DrawItem(object? sender, DrawItemEventArgs e)
+    {
+        if (sender is not TabControl tc || e.Index < 0 || e.Index >= tc.TabPages.Count) return;
+
+        var page = tc.TabPages[e.Index];
+        bool isSelected = (e.State & DrawItemState.Selected) != 0;
+        bool isDark = tc.BackColor.R < 100;
+
+        var tabRect = tc.GetTabRect(e.Index);
+        var bg = isSelected
+            ? (isDark ? DarkCard : LightSurface)
+            : (isDark ? DarkSurface : Color.FromArgb(235, 238, 242));
+        var fg = isSelected
+            ? (isDark ? DarkText : LightText)
+            : (isDark ? DarkTextMuted : LightTextMuted);
+
+        using (var brush = new SolidBrush(bg))
+        {
+            e.Graphics.FillRectangle(brush, tabRect);
+        }
+
+        // Draw top active accent line for selected tab
+        if (isSelected)
+        {
+            using var accentPen = new Pen(isDark ? DarkAccent : LightAccent, 2f);
+            e.Graphics.DrawLine(accentPen, tabRect.Left, tabRect.Top, tabRect.Right, tabRect.Top);
+        }
+
+        // Draw subtle outline
+        using (var borderPen = new Pen(isDark ? DarkBorder : LightBorder, 1))
+        {
+            e.Graphics.DrawRectangle(borderPen, tabRect);
+        }
+
+        // Draw text
+        using var font = new Font(tc.Font, isSelected ? FontStyle.Bold : FontStyle.Regular);
+        using var textBrush = new SolidBrush(fg);
+        var sf = new StringFormat { Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center };
+        e.Graphics.DrawString(page.Text, font, textBrush, tabRect, sf);
+    }
+
     private static void SetupDarkComboBox(ComboBox cb, bool isDark)
     {
         cb.DrawMode = DrawMode.OwnerDrawFixed;
@@ -239,7 +290,7 @@ public static class ThemeService
         var text = cb.Items[e.Index]?.ToString() ?? "";
         using var fontBrush = new SolidBrush(fg);
         var sf = new StringFormat { LineAlignment = StringAlignment.Center };
-        var textBounds = new Rectangle(e.Bounds.X + 2, e.Bounds.Y, e.Bounds.Width - 4, e.Bounds.Height);
+        var textBounds = new Rectangle(e.Bounds.X + 4, e.Bounds.Y, e.Bounds.Width - 6, e.Bounds.Height);
         e.Graphics.DrawString(text, cb.Font, fontBrush, textBounds, sf);
 
         e.DrawFocusRectangle();
