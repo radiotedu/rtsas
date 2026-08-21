@@ -146,7 +146,11 @@ public class AudioStreamServer
     private async Task HandleClientConnectionAsync(TcpClient client, CancellationToken ct)
     {
         client.NoDelay = true;
+        client.SendTimeout = 3000;
+        client.ReceiveTimeout = 3000;
         using var stream = client.GetStream();
+        stream.WriteTimeout = 3000;
+        stream.ReadTimeout = 3000;
 
         try
         {
@@ -388,7 +392,11 @@ public class AudioStreamServer
         var headerBytes = Encoding.Latin1.GetBytes(sb.ToString());
         await stream.WriteAsync(headerBytes, 0, headerBytes.Length, ct);
 
-        if (isHead) return;
+        // If this is a HEAD request or automated health check / verifier bot, do NOT register as permanent human listener
+        if (isHead || IsMonitoringProbe(userAgent))
+        {
+            return;
+        }
 
         var client = mount.RegisterClient(clientIp, userAgent, supportsIcy, stream);
         OnClientConnected?.Invoke(mount.MountPath, clientIp);
@@ -407,6 +415,19 @@ public class AudioStreamServer
             mount.RemoveClient(client.Id);
             OnClientDisconnected?.Invoke(mount.MountPath, clientIp);
         }
+    }
+
+    private static bool IsMonitoringProbe(string userAgent)
+    {
+        if (string.IsNullOrWhiteSpace(userAgent)) return false;
+        return userAgent.Contains("verifier", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("healthcheck", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("uptime", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("probe", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("ping", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("Go-http-client", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("curl", StringComparison.OrdinalIgnoreCase) ||
+               userAgent.Contains("Wget", StringComparison.OrdinalIgnoreCase);
     }
 
     private async Task SendJsonStatsResponseAsync(NetworkStream stream)

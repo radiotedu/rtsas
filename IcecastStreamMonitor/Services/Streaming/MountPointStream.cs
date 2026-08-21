@@ -304,12 +304,25 @@ public class MountPointStream
 
     public StreamingClient RegisterClient(string ipAddress, string userAgent, bool supportsIcy, NetworkStream stream)
     {
+        var cleanIp = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress;
+        var cleanUa = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent;
+
+        // Prune any existing stale/ghost connections from this exact IP & UserAgent on this mount
+        var existingStale = _clients.Values
+            .Where(c => c.IpAddress == cleanIp && c.UserAgent == cleanUa)
+            .ToList();
+
+        foreach (var stale in existingStale)
+        {
+            KickClient(stale.Id);
+        }
+
         var id = Interlocked.Increment(ref _clientCounter);
         var client = new StreamingClient
         {
             Id = id,
-            IpAddress = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress,
-            UserAgent = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent,
+            IpAddress = cleanIp,
+            UserAgent = cleanUa,
             ConnectedSince = DateTime.Now,
             SupportsIcyMetadata = !IsOggStream && supportsIcy,
             NetworkStream = stream,
