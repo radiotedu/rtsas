@@ -4,6 +4,7 @@ obj/
 publish/
 installer-publish/
 remote-control-publish/
+single-publish/
 out/
 *.user
 *.suo
