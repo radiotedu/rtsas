@@ -36,7 +36,7 @@ partial class StreamAnalyticsDialog
         this.pnlMetric1 = new System.Windows.Forms.Panel();
         this.lblValPeak = new System.Windows.Forms.Label();
         this.lblTitlePeak = new System.Windows.Forms.Label();
-        this.tabCharts = new System.Windows.Forms.TabControl();
+        this.tabCharts = new IcecastStreamMonitor.Controls.DarkTabControl();
         this.tabListeners = new System.Windows.Forms.TabPage();
         this.chartListeners = new IcecastStreamMonitor.Controls.HistoricalChartControl();
         this.tabData = new System.Windows.Forms.TabPage();
@@ -301,7 +301,7 @@ partial class StreamAnalyticsDialog
         this.tabListeners.Padding = new System.Windows.Forms.Padding(3);
         this.tabListeners.Size = new System.Drawing.Size(876, 353);
         this.tabListeners.TabIndex = 0;
-        this.tabListeners.Text = "📈 Concurrent Listeners (24h)";
+        this.tabListeners.Text = "Listeners (24h)";
         this.tabListeners.UseVisualStyleBackColor = true;
         // 
         // chartListeners
@@ -324,7 +324,7 @@ partial class StreamAnalyticsDialog
         this.tabData.Padding = new System.Windows.Forms.Padding(3);
         this.tabData.Size = new System.Drawing.Size(876, 353);
         this.tabData.TabIndex = 1;
-        this.tabData.Text = "📊 Data Transfer & Bandwidth";
+        this.tabData.Text = "Bandwidth & Data";
         this.tabData.UseVisualStyleBackColor = true;
         // 
         // chartData
@@ -347,7 +347,7 @@ partial class StreamAnalyticsDialog
         this.tabLatency.Padding = new System.Windows.Forms.Padding(3);
         this.tabLatency.Size = new System.Drawing.Size(876, 353);
         this.tabLatency.TabIndex = 2;
-        this.tabLatency.Text = "⚡ Response Latency (Ping)";
+        this.tabLatency.Text = "Response Latency";
         this.tabLatency.UseVisualStyleBackColor = true;
         // 
         // chartLatency
@@ -370,7 +370,7 @@ partial class StreamAnalyticsDialog
         this.tabTable.Padding = new System.Windows.Forms.Padding(3);
         this.tabTable.Size = new System.Drawing.Size(876, 353);
         this.tabTable.TabIndex = 3;
-        this.tabTable.Text = "📝 24h Event Logs Table";
+        this.tabTable.Text = "24h Event Logs Table";
         this.tabTable.UseVisualStyleBackColor = true;
         // 
         // gridLogs
@@ -553,7 +553,7 @@ partial class StreamAnalyticsDialog
     private System.Windows.Forms.Panel pnlMetric5;
     private System.Windows.Forms.Label lblValLatency;
     private System.Windows.Forms.Label lblTitleLatency;
-    private System.Windows.Forms.TabControl tabCharts;
+    private IcecastStreamMonitor.Controls.DarkTabControl tabCharts;
     private System.Windows.Forms.TabPage tabListeners;
     private IcecastStreamMonitor.Controls.HistoricalChartControl chartListeners;
     private System.Windows.Forms.TabPage tabData;

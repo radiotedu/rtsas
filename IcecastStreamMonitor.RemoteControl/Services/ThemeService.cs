@@ -140,13 +140,9 @@ public static class ThemeService
                     break;
 
                 case TabControl tc:
-                    tc.DrawMode = TabDrawMode.OwnerDrawFixed;
-                    tc.ItemSize = new Size(Math.Max(120, tc.ItemSize.Width), 28);
-                    tc.SizeMode = TabSizeMode.Normal;
                     tc.BackColor = isDark ? DarkBg : LightBg;
                     tc.ForeColor = isDark ? DarkText : LightText;
-                    tc.DrawItem -= TabControl_DrawItem;
-                    tc.DrawItem += TabControl_DrawItem;
+                    tc.Invalidate();
                     foreach (TabPage tp in tc.TabPages)
                     {
                         tp.BackColor = isDark ? DarkBg : LightBg;
