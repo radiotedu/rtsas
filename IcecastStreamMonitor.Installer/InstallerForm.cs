@@ -582,13 +582,13 @@ public partial class InstallerForm : Form
         if (txtRemotePasswordConfirm == null)
             txtRemotePasswordConfirm = new TextBox { Text = string.Empty, PasswordChar = '•', Location = new Point(270, 117), Size = new Size(235, 23) };
 
-        var lblFirewall = new Label
+        var lblRemoteInfo = new Label
         {
-            Text = "🔥 Windows Defender Firewall inbound rules will be created automatically for Port 8080 and Streaming Ports.",
+            Text = "ℹ️ Remote client connects via TCP. You can allow port in Windows Firewall if connecting across LAN.",
             Font = new Font("Segoe UI", 8F, FontStyle.Italic),
             ForeColor = Color.DarkSlateBlue,
             Location = new Point(15, 165),
-            Size = new Size(490, 40)
+            Size = new Size(490, 30)
         };
 
         grpRemote.Controls.AddRange(new Control[]
@@ -597,7 +597,7 @@ public partial class InstallerForm : Form
             lblRemRole, cboRemoteRole,
             lblRemPort, numRemotePort,
             lblRemPass1, txtRemotePassword, lblRemPass2, txtRemotePasswordConfirm,
-            lblFirewall
+            lblRemoteInfo
         });
 
         pnlContainer.Controls.AddRange(new Control[] { lblHeader, lblDesc, chkEnableRemoteApi, grpRemote });
@@ -679,119 +679,119 @@ public partial class InstallerForm : Form
     private async Task ExecuteInstallationAsync()
     {
         var targetDir = txtInstallPath.Text.Trim();
-        Directory.CreateDirectory(targetDir);
-
-        lblInstallStatus.Text = "Closing active RTSAS instances...";
-        progressBar.Value = 10;
-        await Task.Delay(100);
-
         try
         {
-            var procs = Process.GetProcessesByName("IcecastStreamMonitor")
-                .Concat(Process.GetProcessesByName("IcecastStreamMonitor.RemoteControl"));
-            foreach (var p in procs)
-            {
-                if (p.Id != Environment.ProcessId)
-                {
-                    try { p.Kill(); p.WaitForExit(1500); } catch { }
-                }
-            }
-        }
-        catch { }
+            Directory.CreateDirectory(targetDir);
 
-        lblInstallStatus.Text = "Deploying application binaries...";
-        progressBar.Value = 35;
-        await Task.Delay(200);
+            lblInstallStatus.Text = "Closing active RTSAS instances...";
+            progressBar.Value = 15;
+            await Task.Delay(100);
 
-        bool extractedEmbedded = false;
-        try
-        {
-            var asm = System.Reflection.Assembly.GetExecutingAssembly();
-            var resources = asm.GetManifestResourceNames();
-
-            foreach (var resName in resources)
-            {
-                if (resName.EndsWith("IcecastStreamMonitor.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    using var stream = asm.GetManifestResourceStream(resName);
-                    if (stream != null)
-                    {
-                        var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
-                        using var fs = File.Create(destPath);
-                        stream.CopyTo(fs);
-                        extractedEmbedded = true;
-                    }
-                }
-                else if (resName.EndsWith("IcecastStreamMonitor.RemoteControl.exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    using var stream = asm.GetManifestResourceStream(resName);
-                    if (stream != null)
-                    {
-                        var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
-                        using var fs = File.Create(destPath);
-                        stream.CopyTo(fs);
-                        extractedEmbedded = true;
-                    }
-                }
-            }
-        }
-        catch { }
-
-        // Fallback: Copy adjacent published files if not embedded
-        if (!extractedEmbedded)
-        {
-            var currentExeDir = AppDomain.CurrentDomain.BaseDirectory;
-            var publishDir = Path.Combine(currentExeDir, "..", "..", "..", "..", "publish");
-            if (!Directory.Exists(publishDir))
-            {
-                publishDir = currentExeDir;
-            }
-
-            var sourceFiles = Directory.GetFiles(publishDir, "*.*")
-                .Where(f => !f.EndsWith("IcecastStreamMonitor.Installer.exe", StringComparison.OrdinalIgnoreCase) &&
-                            !f.EndsWith("IcecastStreamMonitor.Installer.dll", StringComparison.OrdinalIgnoreCase));
-
-            foreach (var file in sourceFiles)
-            {
-                var dest = Path.Combine(targetDir, Path.GetFileName(file));
-                File.Copy(file, dest, overwrite: true);
-            }
-        }
-
-        progressBar.Value = 60;
-
-        if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
-        {
-            lblInstallStatus.Text = "Preserving existing mounts, passwords, and security settings...";
-            await Task.Delay(200);
-            PreserveExistingSettings(targetDir);
-        }
-        else
-        {
-            lblInstallStatus.Text = "Encrypting credentials and generating initial settings & remote users...";
-            await Task.Delay(200);
-            WriteInitialSettings(targetDir);
-        }
-
-        progressBar.Value = 85;
-        lblInstallStatus.Text = "Finalizing installation and shortcuts...";
-        await Task.Delay(100);
-
-        var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
-        var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
-
-        var desktopChecked = chkDesktopShortcut == null || chkDesktopShortcut.Checked;
-        var startMenuChecked = chkStartMenuShortcut == null || chkStartMenuShortcut.Checked;
-        var autoStartChecked = chkAutoStart != null && chkAutoStart.Checked;
-        var sPort = (int)numServerPort.Value;
-        var rPort = (int)numRemotePort.Value;
-
-        _ = Task.Run(() =>
-        {
             try
             {
-                ConfigureFirewallRules(sPort, rPort);
+                var procs = Process.GetProcessesByName("IcecastStreamMonitor")
+                    .Concat(Process.GetProcessesByName("IcecastStreamMonitor.RemoteControl"));
+                foreach (var p in procs)
+                {
+                    if (p.Id != Environment.ProcessId)
+                    {
+                        try { p.Kill(); p.WaitForExit(1000); } catch { }
+                    }
+                }
+            }
+            catch { }
 
+            lblInstallStatus.Text = "Deploying application binaries...";
+            progressBar.Value = 40;
+            await Task.Delay(100);
+
+            bool extractedEmbedded = false;
+            try
+            {
+                var asm = System.Reflection.Assembly.GetExecutingAssembly();
+                var resources = asm.GetManifestResourceNames();
+
+                foreach (var resName in resources)
+                {
+                    if (resName.EndsWith("IcecastStreamMonitor.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var stream = asm.GetManifestResourceStream(resName);
+                        if (stream != null)
+                        {
+                            var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
+                            using var fs = File.Create(destPath);
+                            stream.CopyTo(fs);
+                            extractedEmbedded = true;
+                        }
+                    }
+                    else if (resName.EndsWith("IcecastStreamMonitor.RemoteControl.exe", StringComparison.OrdinalIgnoreCase))
+                    {
+                        using var stream = asm.GetManifestResourceStream(resName);
+                        if (stream != null)
+                        {
+                            var destPath = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
+                            using var fs = File.Create(destPath);
+                            stream.CopyTo(fs);
+                            extractedEmbedded = true;
+                        }
+                    }
+                }
+            }
+            catch { }
+
+            // Fallback: Copy adjacent published files if not embedded
+            if (!extractedEmbedded)
+            {
+                try
+                {
+                    var currentExeDir = AppDomain.CurrentDomain.BaseDirectory;
+                    var publishDir = Path.Combine(currentExeDir, "..", "..", "..", "..", "publish");
+                    if (!Directory.Exists(publishDir))
+                    {
+                        publishDir = currentExeDir;
+                    }
+
+                    var sourceFiles = Directory.GetFiles(publishDir, "*.*")
+                        .Where(f => !f.EndsWith("IcecastStreamMonitor.Installer.exe", StringComparison.OrdinalIgnoreCase) &&
+                                    !f.EndsWith("IcecastStreamMonitor.Installer.dll", StringComparison.OrdinalIgnoreCase));
+
+                    foreach (var file in sourceFiles)
+                    {
+                        var dest = Path.Combine(targetDir, Path.GetFileName(file));
+                        try { File.Copy(file, dest, overwrite: true); } catch { }
+                    }
+                }
+                catch { }
+            }
+
+            progressBar.Value = 70;
+
+            if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
+            {
+                lblInstallStatus.Text = "Preserving existing mounts, passwords, and security settings...";
+                await Task.Delay(100);
+                PreserveExistingSettings(targetDir);
+            }
+            else
+            {
+                lblInstallStatus.Text = "Encrypting credentials and generating initial settings & remote users...";
+                await Task.Delay(100);
+                WriteInitialSettings(targetDir);
+            }
+
+            progressBar.Value = 90;
+            lblInstallStatus.Text = "Creating shortcuts...";
+            await Task.Delay(100);
+
+            var targetExe = Path.Combine(targetDir, "IcecastStreamMonitor.exe");
+            var remoteExe = Path.Combine(targetDir, "IcecastStreamMonitor.RemoteControl.exe");
+
+            var desktopChecked = chkDesktopShortcut == null || chkDesktopShortcut.Checked;
+            var startMenuChecked = chkStartMenuShortcut == null || chkStartMenuShortcut.Checked;
+            var autoStartChecked = chkAutoStart != null && chkAutoStart.Checked;
+
+            try
+            {
                 if (desktopChecked)
                 {
                     CreateShortcut(
@@ -829,7 +829,11 @@ public partial class InstallerForm : Form
                 }
             }
             catch { }
-        });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Installation warning: {ex.Message}");
+        }
 
         progressBar.Value = 100;
         if (_isUpgradeMode && (radUpgradeInPlace == null || radUpgradeInPlace.Checked))
@@ -845,28 +849,6 @@ public partial class InstallerForm : Form
         btnNext.Text = "Finish";
         btnNext.Enabled = true;
         btnCancel.Enabled = false;
-    }
-
-    private void ConfigureFirewallRules(int streamPort, int remotePort)
-    {
-        _ = Task.Run(() =>
-        {
-            try
-            {
-                var psi = new ProcessStartInfo
-                {
-                    FileName = "powershell.exe",
-                    Arguments = $"-NoProfile -NonInteractive -Command \"try {{ New-NetFirewallRule -DisplayName 'RTSAS Audio Stream Server' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {streamPort},11154,8000 -ErrorAction SilentlyContinue; New-NetFirewallRule -DisplayName 'RTSAS Remote Control API' -Direction Inbound -Action Allow -Protocol TCP -LocalPort {remotePort},8080 -ErrorAction SilentlyContinue }} catch {{}}\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                };
-                using var proc = Process.Start(psi);
-                proc?.WaitForExit(1000);
-            }
-            catch { }
-        });
     }
 
     private void PreserveExistingSettings(string targetDir)
