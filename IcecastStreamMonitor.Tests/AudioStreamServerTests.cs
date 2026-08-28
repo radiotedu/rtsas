@@ -15,7 +15,7 @@ public class AudioStreamServerTests
     {
         var frame = IcyMetadataInjector.CreateMetadataFrame("RadioTEDU - Great Music", "https://stream.radiotedu.com");
         Assert.NotNull(frame);
-        Assert.True(frame.Length > 1);
+        Assert.True(frame.Length > 2);
 
         int lengthByte = frame[0];
         Assert.Equal((frame.Length - 1) / 16, lengthByte);
