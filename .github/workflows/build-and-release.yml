@@ -79,11 +79,11 @@ jobs:
       shell: bash
       run: |
         set -o pipefail
-        python3 ContinuityLab/codec_handoff.py ContinuityLab/bin/Release/net10.0/ContinuityLab.dll | tee codec-handoff-result.json
+        python3 ContinuityLab/codec_handoff.py ContinuityLab/bin/Release/net10.0/ContinuityLab.dll | tee codec-handoff-result.jsonl
     - name: Retain codec test result
       if: always()
       uses: actions/upload-artifact@v4
       with:
         name: synthetic-codec-handoff
-        path: codec-handoff-result.json
+        path: codec-handoff-result.jsonl
         if-no-files-found: warn

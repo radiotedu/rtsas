@@ -61,7 +61,7 @@ def attempt(port,codec):
   wait_for(lambda:stats(port,mount),10,'first source did not become online')
   out=root/(codec+'-listener.pcm');err=root/(codec+'-listener.err')
   with err.open('wb') as diag:
-   player=subprocess.Popen(['ffmpeg','-hide_banner','-loglevel','error','-y','-user_agent','ContinuityCodecLab/1.0','-icy','0','-probesize','32768','-analyzeduration','1000000','-i',f'http://127.0.0.1:{port}{mount}','-t','3','-ac','1','-ar','48000','-f','s16le',str(out)],stdout=subprocess.DEVNULL,stderr=diag)
+   player=subprocess.Popen(['ffmpeg','-hide_banner','-loglevel','error','-y','-user_agent','ContinuityCodecLab/1.0','-icy','0','-probesize','32768','-analyzeduration','1000000','-i',f'http://127.0.0.1:{port}{mount}','-ac','1','-ar','48000','-f','s16le',str(out)],stdout=subprocess.DEVNULL,stderr=diag)
    wait_for(lambda:(s if (s:=stats(port,mount)) and s['listeners']==1 else None),10,'listener did not join')
    firstBytes=a.read_bytes();first.sendall(firstBytes)
    wait_for(lambda:(s if (s:=stats(port,mount)) and s['total_bytes']>=len(firstBytes) else None),10,'first source not ingested')
@@ -74,9 +74,21 @@ def attempt(port,codec):
    if after['listeners']!=1:raise RuntimeError(codec+' listener was not retained')
    secondBytes=b.read_bytes();second.sendall(secondBytes)
    wait_for(lambda:(s if (s:=stats(port,mount)) and s['total_bytes']>=len(firstBytes)+len(secondBytes) else None),10,'replacement not ingested')
-   try:code=player.wait(timeout=20)
-   except subprocess.TimeoutExpired:raise TimeoutError(codec+' decoder did not resume after reconnection')
-  if code!=0:raise RuntimeError(codec+' decoder failed: '+err.read_text(errors='replace')[-1000:])
+   # Chained Ogg streams can reset timestamps. Measure actual decoded PCM
+   # rather than requiring ffmpeg's timestamp-based -t to reach three seconds.
+   deadline=time.monotonic()+20;required=int(2.7*48000)*2
+   while time.monotonic()<deadline:
+    size=out.stat().st_size if out.exists() else 0
+    if size>=required:break
+    if player.poll() is not None:raise RuntimeError(codec+' decoder exited before enough PCM; bytes='+str(size))
+    time.sleep(.1)
+   else:
+    size=out.stat().st_size if out.exists() else 0
+    player.terminate();player.wait(timeout=5)
+    raise TimeoutError(codec+' decoder produced only '+str(size)+' PCM bytes after reconnect: '+err.read_text(errors='replace')[-1000:])
+   player.terminate()
+   try:player.wait(timeout=5)
+   except subprocess.TimeoutExpired:player.kill();player.wait(timeout=5)
   pcm=array.array('h');pcm.frombytes(out.read_bytes())
   if sys.byteorder!='little':pcm.byteswap()
   if len(pcm)<int(2.7*48000):raise RuntimeError(codec+' listener produced insufficient decoded audio')
@@ -95,8 +107,10 @@ server=subprocess.Popen(['dotnet',sys.argv[1]],stdin=subprocess.PIPE,stdout=subp
 try:
  line=readline_timeout(server.stdout,30);port=json.loads(line)['port']
  if not 0<port<65536:raise ValueError('Invalid ephemeral port')
- result=[attempt(port,codec) for codec in ('aac','oggflac')]
- print(json.dumps({'scope':'synthetic real decoders; literal loopback only','cases':result,'heAacTested':False,'proxyTested':False,'serverRestartTested':False}))
+ result=[]
+ for codec in ('aac','oggflac'):
+  case=attempt(port,codec);result.append(case);print(json.dumps({'case':case}),flush=True)
+ print(json.dumps({'scope':'synthetic real decoders; literal loopback only','cases':result,'heAacTested':False,'proxyTested':False,'serverRestartTested':False}),flush=True)
 finally:
  if server.poll() is None:
   try:server.stdin.write('\n');server.stdin.flush();server.wait(timeout=15)
