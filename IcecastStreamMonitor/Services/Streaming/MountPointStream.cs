@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Channels;
 using IcecastStreamMonitor.Models;
 
 namespace IcecastStreamMonitor.Services.Streaming;
+
+internal readonly record struct AudioPacket(byte[] Data, int Offset, int Length);
 
 public class StreamingClient
 {
@@ -16,6 +19,10 @@ public class StreamingClient
     public int BytesUntilNextMetadata { get; set; } = IcyMetadataInjector.DefaultMetaInterval;
     public NetworkStream? NetworkStream { get; set; }
     public CancellationTokenSource Cts { get; set; } = new();
+    // One slow connection must neither stall the source nor drop a partial
+    // packet into the middle of that listener's encoded stream.
+    internal Channel<AudioPacket> Output { get; } = Channel.CreateBounded<AudioPacket>(
+        new BoundedChannelOptions(128) { SingleReader = true, FullMode = BoundedChannelFullMode.Wait });
 }
 
 public class MountPointStream
@@ -51,13 +58,13 @@ public class MountPointStream
     private readonly byte[] _burstBuffer = new byte[262144];
     private int _burstBufferWritePos = 0;
     private int _burstBufferCount = 0;
+    private long _sourceStartBytes;
     private readonly object _burstLock = new();
 
     // OGG Container Header Capture (Vorbis / Opus / Ogg FLAC)
     private byte[]? _oggHeaderPages;
     private readonly MemoryStream _oggCaptureStream = new();
     private bool _oggHeadersCaptured = false;
-    private readonly object _oggLock = new();
 
     private bool _metadataChanged = true;
     private byte[] _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame("RadioTEDU Live Broadcast");
@@ -96,35 +103,22 @@ public class MountPointStream
 
     public void SetSourceConnected(string sourceIp, string userAgent, string contentType, int bitrate, string name, string genre)
     {
-        IsOnline = true;
-        SourceConnectedAt = DateTime.Now;
-        SourceIpAddress = sourceIp;
-        SourceUserAgent = userAgent;
-
-        if (!string.IsNullOrWhiteSpace(contentType))
-        {
-            ContentType = contentType;
-        }
-        else
-        {
-            ContentType = DetectInitialContentType(MountPath);
-        }
-
-        if (bitrate > 0) BitRateKbps = bitrate;
-        if (!string.IsNullOrEmpty(name)) StreamName = name;
-        if (!string.IsNullOrEmpty(genre)) StreamGenre = genre;
-
-        _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame(StreamTitle);
-        _metadataChanged = true;
-
         lock (_burstLock)
         {
+            IsOnline = true;
+            SourceConnectedAt = DateTime.Now;
+            SourceIpAddress = sourceIp;
+            SourceUserAgent = userAgent;
+            ContentType = !string.IsNullOrWhiteSpace(contentType)
+                ? contentType : DetectInitialContentType(MountPath);
+            if (bitrate > 0) BitRateKbps = bitrate;
+            if (!string.IsNullOrEmpty(name)) StreamName = name;
+            if (!string.IsNullOrEmpty(genre)) StreamGenre = genre;
+            _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame(StreamTitle);
+            _metadataChanged = true;
             _burstBufferWritePos = 0;
             _burstBufferCount = 0;
-        }
-
-        lock (_oggLock)
-        {
+            _sourceStartBytes = TotalBytesTransferred;
             _oggHeaderPages = null;
             _oggHeadersCaptured = false;
             _oggCaptureStream.SetLength(0);
@@ -133,98 +127,57 @@ public class MountPointStream
 
     public void SetSourceDisconnected()
     {
-        IsOnline = false;
-        SourceConnectedAt = null;
-
-        // Disconnect listeners when source drops
-        foreach (var client in _clients.Values)
+        StreamingClient[] disconnected;
+        lock (_burstLock)
         {
-            try
-            {
-                client.Cts.Cancel();
-            }
-            catch { }
+            IsOnline = false;
+            SourceConnectedAt = null;
+            disconnected = _clients.Values.ToArray();
+            _clients.Clear();
         }
-        _clients.Clear();
+        foreach (var client in disconnected) CloseClient(client);
     }
 
     public void WriteAudioChunk(byte[] buffer, int offset, int count)
     {
         if (count <= 0) return;
-
-        TotalBytesTransferred += count;
-
-        // Capture initial Ogg header pages if this is an Ogg stream
-        if (IsOggStream && !_oggHeadersCaptured)
-        {
-            lock (_oggLock)
-            {
-                if (!_oggHeadersCaptured)
-                {
-                    _oggCaptureStream.Write(buffer, offset, count);
-                    var capturedBytes = _oggCaptureStream.ToArray();
-                    var headerLength = TryParseOggHeaderLength(capturedBytes);
-                    if (headerLength > 0)
-                    {
-                        _oggHeaderPages = new byte[headerLength];
-                        Array.Copy(capturedBytes, 0, _oggHeaderPages, 0, headerLength);
-                        _oggHeadersCaptured = true;
-                    }
-                    else if (_oggCaptureStream.Length > 65536) // Fallback limit
-                    {
-                        _oggHeaderPages = _oggCaptureStream.ToArray();
-                        _oggHeadersCaptured = true;
-                    }
-                }
-            }
-        }
-
-        // Write to circular burst buffer
+        List<long>? slow = null;
         lock (_burstLock)
         {
+            TotalBytesTransferred += count;
+            if (IsOggStream && !_oggHeadersCaptured)
+            {
+                _oggCaptureStream.Write(buffer, offset, count);
+                var captured = _oggCaptureStream.ToArray();
+                var headerLength = TryParseOggHeaderLength(captured);
+                if (headerLength > 0)
+                {
+                    _oggHeaderPages = captured.AsSpan(0, headerLength).ToArray();
+                    _oggHeadersCaptured = true;
+                }
+                else if (_oggCaptureStream.Length > 65536)
+                    _oggHeadersCaptured = true;
+            }
             for (int i = 0; i < count; i++)
             {
                 _burstBuffer[_burstBufferWritePos] = buffer[offset + i];
                 _burstBufferWritePos = (_burstBufferWritePos + 1) % _burstBuffer.Length;
-                if (_burstBufferCount < _burstBuffer.Length)
-                {
-                    _burstBufferCount++;
-                }
-            }
-        }
-
-        // Broadcast to all connected clients
-        var clients = _clients.Values.ToList();
-        if (clients.Count > PeakListeners)
-        {
-            PeakListeners = clients.Count;
-        }
-
-        foreach (var client in clients)
-        {
-            if (client.Cts.IsCancellationRequested || client.NetworkStream == null)
-            {
-                KickClient(client.Id);
-                continue;
+                if (_burstBufferCount < _burstBuffer.Length) _burstBufferCount++;
             }
 
-            try
+            // The source reuses its read buffer. Copy once for all listeners.
+            // Keep snapshot publication and enqueue atomic with registration.
+            var listeners = _clients.Values;
+            if (listeners.Count != 0)
             {
-                if (client.SupportsIcyMetadata)
-                {
-                    SendChunkWithIcyMetadata(client, buffer, offset, count);
-                }
-                else
-                {
-                    client.NetworkStream.Write(buffer, offset, count);
-                    client.BytesSent += count;
-                }
-            }
-            catch
-            {
-                KickClient(client.Id);
+                var packet = new AudioPacket(buffer.AsSpan(offset, count).ToArray(), 0, count);
+                if (listeners.Count > PeakListeners) PeakListeners = listeners.Count;
+                foreach (var client in listeners)
+                    if (!client.Output.Writer.TryWrite(packet)) (slow ??= new()).Add(client.Id);
             }
         }
+        if (slow != null)
+            foreach (var id in slow) KickClient(id);
     }
 
     private static int TryParseOggHeaderLength(byte[] data)
@@ -273,173 +226,132 @@ public class MountPointStream
         return 0;
     }
 
-    private void SendChunkWithIcyMetadata(StreamingClient client, byte[] buffer, int offset, int count)
+    private async Task RunClientWriterAsync(StreamingClient client)
     {
-        if (client.NetworkStream == null) return;
-
-        int bytesRemaining = count;
-        int currentOffset = offset;
-
-        while (bytesRemaining > 0)
+        var stream = client.NetworkStream!;
+        try
         {
-            int toSend = Math.Min(bytesRemaining, client.BytesUntilNextMetadata);
-            if (toSend > 0)
+            await foreach (var packet in client.Output.Reader.ReadAllAsync(client.Cts.Token))
             {
-                client.NetworkStream.Write(buffer, currentOffset, toSend);
-                client.BytesSent += toSend;
-                client.BytesUntilNextMetadata -= toSend;
-                bytesRemaining -= toSend;
-                currentOffset += toSend;
-            }
-
-            if (client.BytesUntilNextMetadata == 0)
-            {
-                // Send metadata frame
-                var metaFrame = _metadataChanged ? _currentMetadataFrame : IcyMetadataInjector.CreateEmptyMetadataFrame();
-                client.NetworkStream.Write(metaFrame, 0, metaFrame.Length);
-                client.BytesSent += metaFrame.Length;
-                client.BytesUntilNextMetadata = IcyMetadataInjector.DefaultMetaInterval;
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(client.Cts.Token);
+                deadline.CancelAfter(TimeSpan.FromSeconds(3));
+                var data = packet.Data.AsMemory(packet.Offset, packet.Length);
+                if (!client.SupportsIcyMetadata)
+                {
+                    await stream.WriteAsync(data, deadline.Token);
+                    client.BytesSent += data.Length;
+                    continue;
+                }
+                while (!data.IsEmpty)
+                {
+                    var count = Math.Min(data.Length, client.BytesUntilNextMetadata);
+                    if (count > 0)
+                    {
+                        await stream.WriteAsync(data[..count], deadline.Token);
+                        client.BytesSent += count;
+                        client.BytesUntilNextMetadata -= count;
+                        data = data[count..];
+                    }
+                    if (client.BytesUntilNextMetadata == 0)
+                    {
+                        var metadata = _metadataChanged ? _currentMetadataFrame : IcyMetadataInjector.CreateEmptyMetadataFrame();
+                        await stream.WriteAsync(metadata, deadline.Token);
+                        client.BytesSent += metadata.Length;
+                        client.BytesUntilNextMetadata = IcyMetadataInjector.DefaultMetaInterval;
+                    }
+                }
             }
         }
+        catch (Exception ex) when (ex is IOException or SocketException or OperationCanceledException or ObjectDisposedException)
+        {
+            // Only this listener's writer failed, timed out or was cancelled.
+        }
+        finally { KickClient(client.Id); }
     }
 
     public StreamingClient RegisterClient(string ipAddress, string userAgent, bool supportsIcy, NetworkStream stream)
     {
-        var cleanIp = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress;
-        var cleanUa = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent;
-
-        // Prune any existing stale/ghost connections from this exact IP & UserAgent on this mount
-        var existingStale = _clients.Values
-            .Where(c => c.IpAddress == cleanIp && c.UserAgent == cleanUa)
-            .ToList();
-
-        foreach (var stale in existingStale)
-        {
-            KickClient(stale.Id);
-        }
-
-        var id = Interlocked.Increment(ref _clientCounter);
         var client = new StreamingClient
         {
-            Id = id,
-            IpAddress = cleanIp,
-            UserAgent = cleanUa,
+            Id = Interlocked.Increment(ref _clientCounter),
+            IpAddress = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress,
+            UserAgent = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent,
             ConnectedSince = DateTime.Now,
-            SupportsIcyMetadata = !IsOggStream && supportsIcy,
             NetworkStream = stream,
-            BytesUntilNextMetadata = IcyMetadataInjector.DefaultMetaInterval
         };
-
-        _clients[id] = client;
-        if (_clients.Count > PeakListeners)
-        {
-            PeakListeners = _clients.Count;
-        }
-
-        // 1. For OGG streams, send captured BOS / Setup header pages first
-        if (IsOggStream)
-        {
-            byte[]? oggHeader = null;
-            lock (_oggLock)
-            {
-                if (_oggHeaderPages != null && _oggHeaderPages.Length > 0)
-                {
-                    oggHeader = _oggHeaderPages;
-                }
-            }
-
-            if (oggHeader != null)
-            {
-                try
-                {
-                    stream.Write(oggHeader, 0, oggHeader.Length);
-                    client.BytesSent += oggHeader.Length;
-                }
-                catch
-                {
-                    KickClient(id);
-                    return client;
-                }
-            }
-        }
-
-        // 2. Send initial burst buffer if available (Instant Playback Engine)
         lock (_burstLock)
         {
+            if (!IsOnline)
+            {
+                // Source can leave between writing the HTTP header and joining.
+                client.Cts.Cancel();
+                return client;
+            }
+            client.SupportsIcyMetadata = !IsOggStream && supportsIcy;
             if (_burstBufferCount > 0)
             {
-                try
+                int start = (_burstBufferWritePos - _burstBufferCount + _burstBuffer.Length) % _burstBuffer.Length;
+                var burst = new byte[_burstBufferCount];
+                for (int i = 0; i < burst.Length; i++)
+                    burst[i] = _burstBuffer[(start + i) % _burstBuffer.Length];
+                var skip = 0;
+                if (IsOggStream && _oggHeaderPages is { Length: > 0 } oggHeader)
                 {
-                    int startPos = (_burstBufferWritePos - _burstBufferCount + _burstBuffer.Length) % _burstBuffer.Length;
-                    var rawBurst = new byte[_burstBufferCount];
-                    for (int i = 0; i < _burstBufferCount; i++)
+                    var burstSourceOffset = TotalBytesTransferred - _sourceStartBytes - _burstBufferCount;
+                    // Before the ring wraps it already includes the original
+                    // Ogg prefix. Sending a second copy repeats packet numbers
+                    // and may reset a listener decoder's timestamps.
+                    if (burstSourceOffset > 0)
                     {
-                        rawBurst[i] = _burstBuffer[(startPos + i) % _burstBuffer.Length];
-                    }
-
-                    int syncOffset = 0;
-                    if (IsOggStream)
-                    {
-                        // Align to OggS page boundary (0x4F, 0x67, 0x67, 0x53)
-                        for (int s = 0; s < Math.Min(rawBurst.Length - 4, 4096); s++)
-                        {
-                            if (rawBurst[s] == 0x4F && rawBurst[s + 1] == 0x67 && rawBurst[s + 2] == 0x67 && rawBurst[s + 3] == 0x53)
-                            {
-                                syncOffset = s;
-                                break;
-                            }
-                        }
-                    }
-                    else if (rawBurst.Length > 512 && (ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("mp3", StringComparison.OrdinalIgnoreCase) || ContentType.Contains("aac", StringComparison.OrdinalIgnoreCase)))
-                    {
-                        // Align to MPEG / AAC sync header (0xFF, 0xEx/0xFx)
-                        for (int s = 0; s < Math.Min(rawBurst.Length - 4, 2048); s++)
-                        {
-                            if (rawBurst[s] == 0xFF && (rawBurst[s + 1] & 0xE0) == 0xE0)
-                            {
-                                syncOffset = s;
-                                break;
-                            }
-                        }
-                    }
-
-                    int validLength = rawBurst.Length - syncOffset;
-                    if (validLength > 0)
-                    {
-                        if (client.SupportsIcyMetadata)
-                        {
-                            SendChunkWithIcyMetadata(client, rawBurst, syncOffset, validLength);
-                        }
-                        else
-                        {
-                            stream.Write(rawBurst, syncOffset, validLength);
-                            client.BytesSent += validLength;
-                        }
+                        client.Output.Writer.TryWrite(new AudioPacket(oggHeader, 0, oggHeader.Length));
+                        skip = (int)Math.Clamp(oggHeader.Length - burstSourceOffset, 0, burst.Length);
                     }
                 }
-                catch
-                {
-                    KickClient(id);
-                }
+                var offset = skip + BurstSyncOffset(burst.AsSpan(skip));
+                if (offset < burst.Length)
+                    client.Output.Writer.TryWrite(new AudioPacket(burst, offset, burst.Length - offset));
             }
-        }
 
+            // An address and browser identifier do not identify a connection.
+            // Publish only after queuing its cached prefix, under the same
+            // lock used by the source, so no live packet can precede it.
+            _clients[client.Id] = client;
+            if (_clients.Count > PeakListeners) PeakListeners = _clients.Count;
+        }
+        _ = RunClientWriterAsync(client);
         return client;
+    }
+
+    private int BurstSyncOffset(ReadOnlySpan<byte> buffer)
+    {
+        if (IsOggStream)
+        {
+            for (var i = 0; i < Math.Min(buffer.Length - 4, 4096); i++)
+                if (buffer[i] == 0x4f && buffer[i + 1] == 0x67 && buffer[i + 2] == 0x67 && buffer[i + 3] == 0x53)
+                    return i;
+        }
+        else if (buffer.Length > 512 && (ContentType.Contains("mpeg", StringComparison.OrdinalIgnoreCase) ||
+                 ContentType.Contains("mp3", StringComparison.OrdinalIgnoreCase) ||
+                 ContentType.Contains("aac", StringComparison.OrdinalIgnoreCase)))
+        {
+            for (var i = 0; i < Math.Min(buffer.Length - 4, 2048); i++)
+                if (buffer[i] == 0xff && (buffer[i + 1] & 0xe0) == 0xe0) return i;
+        }
+        return 0;
+    }
+
+    private static void CloseClient(StreamingClient client)
+    {
+        client.Output.Writer.TryComplete();
+        try { client.Cts.Cancel(); } catch (ObjectDisposedException) { }
+        try { client.NetworkStream?.Close(); } catch (IOException) { }
     }
 
     public bool KickClient(long id)
     {
-        if (_clients.TryRemove(id, out var client))
-        {
-            try
-            {
-                client.Cts.Cancel();
-                client.NetworkStream?.Close();
-                return true;
-            }
-            catch { }
-        }
-        return false;
+        if (!_clients.TryRemove(id, out var client)) return false;
+        CloseClient(client);
+        return true;
     }
 
     public void RemoveClient(long id)
