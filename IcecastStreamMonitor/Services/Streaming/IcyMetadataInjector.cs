@@ -15,7 +15,9 @@ public static class IcyMetadataInjector
     /// </summary>
     public static byte[] CreateMetadataFrame(string streamTitle, string? streamUrl = null)
     {
-        var cleanTitle = (streamTitle ?? "Live Broadcast Feed").Replace("'", "");
+        // Apostrophes inside a title are valid. Neutralize only the ICY
+        // field terminator so text cannot inject another metadata field.
+        var cleanTitle = (streamTitle ?? "Live Broadcast Feed").Replace("';", "' ");
         var metaString = $"StreamTitle='{cleanTitle}';";
         if (!string.IsNullOrEmpty(streamUrl))
         {

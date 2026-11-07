@@ -73,8 +73,44 @@ public sealed class SourceHandoffTests
         Assert.True(await Closed(listener));
     }
 
+    [Fact]
+    public async Task IcyMetadataRetainsTurkishApostropheAcrossSourceReconnect()
+    {
+        await using var lab=new Loopback();
+        var first=await lab.OpenAsync(Source());Assert.Equal(200,await Header(first));
+        await lab.WaitFor(()=>lab.Mount is{IsOnline:true});
+        using var listener=await lab.OpenAsync(Listener(icy:true));Assert.Equal(200,await Header(listener));
+        await lab.WaitFor(()=>lab.Mount is{IsOnline:true,ConcurrentListeners:1});
+        const string before="Gazi Mustafa Kemal Atatürk'ü Saygıyla Anıyoruz";
+        lab.Mount!.UpdateTitle(before);
+        var audio=Enumerable.Range(0,IcyMetadataInjector.DefaultMetaInterval).Select(i=>(byte)(i%251)).ToArray();
+        await first.GetStream().WriteAsync(audio);Assert.Equal(audio,await Exact(listener,audio.Length));
+        Assert.Equal("StreamTitle='"+before+"';",await Metadata(listener));
+        first.Dispose();await lab.WaitFor(()=>lab.Mount is{IsOnline:false});
+        using var replacement=await lab.OpenAsync(Source());Assert.Equal(200,await Header(replacement));
+        await lab.WaitFor(()=>lab.Mount is{IsOnline:true});
+        const string after="Sinatra's Song";lab.Mount!.UpdateTitle(after);
+        await replacement.GetStream().WriteAsync(audio);Assert.Equal(audio,await Exact(listener,audio.Length));
+        Assert.Equal("StreamTitle='"+after+"';",await Metadata(listener));
+    }
+
+    [Fact]
+    public void IcyMetadataCannotInjectAnotherFieldThroughTheTitle()
+    {
+        var frame=IcyMetadataInjector.CreateMetadataFrame("Track';StreamUrl='https://example.invalid");
+        var text=Encoding.UTF8.GetString(frame,1,frame.Length-1).TrimEnd('\0');
+        Assert.DoesNotContain("';StreamUrl=",text);
+        Assert.EndsWith("';",text);
+    }
+
+    private static async Task<string> Metadata(TcpClient c)
+    {
+        var blocks=(await Exact(c,1))[0];Assert.True(blocks>0);
+        return Encoding.UTF8.GetString(await Exact(c,blocks*16)).TrimEnd('\0');
+    }
+
     private static string Source(string contentType="audio/aac")=>$"SOURCE {Mount} HTTP/1.0\r\nContent-Type: {contentType}\r\nice-password: loopback-fixture-only\r\n\r\n";
-    private static string Listener()=>$"GET {Mount} HTTP/1.0\r\nUser-Agent: SourceHandoffFixture/1.0\r\n\r\n";
+    private static string Listener(bool icy=false)=>$"GET {Mount} HTTP/1.0\r\nUser-Agent: SourceHandoffFixture/1.0\r\n"+(icy?"Icy-MetaData: 1\r\n":"")+"\r\n";
     private static async Task<int> Header(TcpClient c)
     {
         using var stop=new CancellationTokenSource(TimeSpan.FromSeconds(10));var bytes=new List<byte>();var one=new byte[1];
