@@ -75,7 +75,7 @@ jobs:
         ffmpeg -version | sed -n '1p'
     - name: Build isolated loopback host
       run: dotnet build ContinuityLab/ContinuityLab.csproj -c Release
-    - name: Decode real AAC and Ogg FLAC across source reconnection
+    - name: Decode AAC-LC, HE-AACv2 and Ogg FLAC across source handoffs
       shell: bash
       run: |
         set -o pipefail

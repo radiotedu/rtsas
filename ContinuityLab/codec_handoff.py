@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthetic loopback test: existing AAC/Ogg-FLAC listener across source reconnect."""
-import array,json,math,os,pathlib,queue,socket,subprocess,sys,tempfile,threading,time,urllib.error,urllib.request
+import array,json,math,os,pathlib,queue,select,socket,subprocess,sys,tempfile,threading,time,urllib.error,urllib.request
 
 if len(sys.argv)!=2:raise SystemExit('Pass the compiled lab host DLL')
 root=pathlib.Path(tempfile.mkdtemp(prefix='rtsas-synthetic-codecs-'))
@@ -53,23 +53,39 @@ def score(values,freq,offset):
  a=sum(v*math.sin(omega*(i+offset)) for i,v in enumerate(values));b=sum(v*math.cos(omega*(i+offset)) for i,v in enumerate(values))
  return math.hypot(a,b)/count
 
-def attempt(port,codec):
- mount='/next-codec-'+codec;content='audio/aac' if codec=='aac' else 'application/ogg'
- a=root/(codec+'-a');b=root/(codec+'-b');make_fixture(codec,440,a);make_fixture(codec,880,b)
+def attempt(port,codec,mode):
+ mount='/next-codec-'+codec+'-'+mode;content='application/ogg' if codec=='oggflac' else 'audio/aac'
+ if codec=='heaac':
+  fixtures=pathlib.Path(__file__).resolve().parent/'fixtures'
+  a=fixtures/'synthetic-he-aac-v2-440.aac';b=fixtures/'synthetic-he-aac-v2-880.aac'
+ else:
+  a=root/(codec+'-'+mode+'-a');b=root/(codec+'-'+mode+'-b');make_fixture(codec,440,a);make_fixture(codec,880,b)
  first=source(port,mount,content);second=None;player=None
  try:
   wait_for(lambda:stats(port,mount),10,'first source did not become online')
-  out=root/(codec+'-listener.pcm');err=root/(codec+'-listener.err')
+  out=root/(codec+'-'+mode+'-listener.pcm');err=root/(codec+'-'+mode+'-listener.err')
   with err.open('wb') as diag:
    player=subprocess.Popen(['ffmpeg','-hide_banner','-loglevel','error','-y','-user_agent','ContinuityCodecLab/1.0','-icy','0','-probesize','32768','-analyzeduration','1000000','-i',f'http://127.0.0.1:{port}{mount}','-ac','1','-ar','48000','-f','s16le',str(out)],stdout=subprocess.DEVNULL,stderr=diag)
    wait_for(lambda:(s if (s:=stats(port,mount)) and s['listeners']==1 else None),10,'listener did not join')
    firstBytes=a.read_bytes();first.sendall(firstBytes)
    wait_for(lambda:(s if (s:=stats(port,mount)) and s['total_bytes']>=len(firstBytes) else None),10,'first source not ingested')
-   time.sleep(.3);first.shutdown(socket.SHUT_RDWR);first.close();first=None
-   wait_for(lambda:stats(port,mount) is None,10,'old source did not end')
-   time.sleep(1)
-   if player.poll() is not None:raise RuntimeError(codec+' listener exited during short source gap')
-   second=source(port,mount,content);wait_for(lambda:stats(port,mount),10,'replacement not online')
+   time.sleep(.3)
+   if mode=='gap':
+    first.shutdown(socket.SHUT_RDWR);first.close();first=None
+    wait_for(lambda:stats(port,mount) is None,10,'old source did not end')
+    time.sleep(1)
+    if player.poll() is not None:raise RuntimeError(codec+' listener exited during short source gap')
+    second=source(port,mount,content);wait_for(lambda:stats(port,mount),10,'replacement not online')
+   else:
+    second=source(port,mount,content)
+    def old_closed():
+     readable,_,_=select.select([first],[],[],0)
+     if not readable:return False
+     try:return first.recv(1,socket.MSG_PEEK)==b''
+     except (ConnectionError,OSError):return True
+    wait_for(old_closed,10,'superseded source was not closed')
+    first.close();first=None;time.sleep(.3)
+    wait_for(lambda:stats(port,mount),10,'replacement not online')
    after=stats(port,mount)
    if after['listeners']!=1:raise RuntimeError(codec+' listener was not retained')
    secondBytes=b.read_bytes();second.sendall(secondBytes)
@@ -96,7 +112,7 @@ def attempt(port,codec):
   first440=score(pcm[start:start+width],440,start);first880=score(pcm[start:start+width],880,start)
   last440=score(pcm[last:],440,last);last880=score(pcm[last:],880,last)
   if not first440>first880*2 or not last880>last440*2:raise RuntimeError(codec+' listener did not decode both source tones')
-  return {'codec':codec,'sameListenerRetained':True,'decodedSeconds':round(len(pcm)/48000,3),'firstToneHz':440,'secondToneHz':880,'firstScoreRatio':round(first440/max(first880,.001),2),'secondScoreRatio':round(last880/max(last440,.001),2)}
+  return {'codec':codec,'mode':mode,'sameListenerRetained':True,'decodedSeconds':round(len(pcm)/48000,3),'firstToneHz':440,'secondToneHz':880,'firstScoreRatio':round(first440/max(first880,.001),2),'secondScoreRatio':round(last880/max(last440,.001),2)}
  finally:
   if first is not None:first.close()
   if second is not None:second.close()
@@ -108,9 +124,10 @@ try:
  line=readline_timeout(server.stdout,30);port=json.loads(line)['port']
  if not 0<port<65536:raise ValueError('Invalid ephemeral port')
  result=[]
- for codec in ('aac','oggflac'):
-  case=attempt(port,codec);result.append(case);print(json.dumps({'case':case}),flush=True)
- print(json.dumps({'scope':'synthetic real decoders; literal loopback only','cases':result,'heAacTested':False,'proxyTested':False,'serverRestartTested':False}),flush=True)
+ for codec in ('aac','heaac','oggflac'):
+  for mode in ('gap','overlap'):
+   case=attempt(port,codec,mode);result.append(case);print(json.dumps({'case':case}),flush=True)
+ print(json.dumps({'scope':'synthetic real decoders; literal loopback only','cases':result,'heAacTested':True,'proxyTested':False,'serverRestartTested':False}),flush=True)
 finally:
  if server.poll() is None:
   try:server.stdin.write('\n');server.stdin.flush();server.wait(timeout=15)
