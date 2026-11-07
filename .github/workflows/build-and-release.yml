@@ -55,3 +55,35 @@ jobs:
         generate_release_notes: true
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  real-codec-handoff:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    permissions:
+      contents: read
+    steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+    - name: Install independent FFmpeg
+      run: |
+        if ! command -v ffmpeg >/dev/null; then
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends ffmpeg
+        fi
+        ffmpeg -version | sed -n '1p'
+    - name: Build isolated loopback host
+      run: dotnet build ContinuityLab/ContinuityLab.csproj -c Release
+    - name: Decode real AAC and Ogg FLAC across source reconnection
+      shell: bash
+      run: |
+        set -o pipefail
+        python3 ContinuityLab/codec_handoff.py ContinuityLab/bin/Release/net10.0/ContinuityLab.dll | tee codec-handoff-result.json
+    - name: Retain codec test result
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: synthetic-codec-handoff
+        path: codec-handoff-result.json
+        if-no-files-found: warn
