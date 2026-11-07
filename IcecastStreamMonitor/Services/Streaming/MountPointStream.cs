@@ -7,6 +7,7 @@ using IcecastStreamMonitor.Models;
 namespace IcecastStreamMonitor.Services.Streaming;
 
 internal readonly record struct AudioPacket(byte[] Data, int Offset, int Length);
+internal sealed record SourceLease(long Id, NetworkStream Stream);
 
 public class StreamingClient
 {
@@ -53,6 +54,10 @@ public class MountPointStream
     // Listeners
     private readonly ConcurrentDictionary<long, StreamingClient> _clients = new();
     private long _clientCounter = 0;
+    private long _sourceCounter;
+    private SourceLease? _currentSource;
+    private CancellationTokenSource? _listenerGrace;
+    private static readonly TimeSpan ReconnectGrace = TimeSpan.FromSeconds(15);
 
     // 256 KB Burst Buffer for Instant Zero-Lag Playback (~3-6 seconds of audio)
     private readonly byte[] _burstBuffer = new byte[262144];
@@ -101,19 +106,36 @@ public class MountPointStream
         _metadataChanged = true;
     }
 
-    public void SetSourceConnected(string sourceIp, string userAgent, string contentType, int bitrate, string name, string genre)
+    // Only the newest authenticated source owns this mount. A short reconnect
+    // can reuse existing listeners without letting an old source close them.
+    internal SourceLease BeginSource(NetworkStream stream, string sourceIp, string userAgent,
+        string contentType, int bitrate, string name, string genre, string description)
     {
+        SourceLease lease; NetworkStream? previous; CancellationTokenSource? grace;
+        StreamingClient[] incompatible = [];
         lock (_burstLock)
         {
+            var nextType = !string.IsNullOrWhiteSpace(contentType)
+                ? contentType : DetectInitialContentType(MountPath);
+            if (_clients.Count != 0 && !string.Equals(ContentType, nextType, StringComparison.OrdinalIgnoreCase))
+            {
+                // A socket's advertised content type cannot change safely.
+                incompatible = _clients.Values.ToArray();
+                _clients.Clear();
+            }
+            previous = _currentSource?.Stream;
+            grace = _listenerGrace; _listenerGrace = null;
+            lease = new SourceLease(checked(++_sourceCounter), stream);
+            _currentSource = lease;
             IsOnline = true;
             SourceConnectedAt = DateTime.Now;
             SourceIpAddress = sourceIp;
             SourceUserAgent = userAgent;
-            ContentType = !string.IsNullOrWhiteSpace(contentType)
-                ? contentType : DetectInitialContentType(MountPath);
+            ContentType = nextType;
             if (bitrate > 0) BitRateKbps = bitrate;
             if (!string.IsNullOrEmpty(name)) StreamName = name;
             if (!string.IsNullOrEmpty(genre)) StreamGenre = genre;
+            StreamDescription = description;
             _currentMetadataFrame = IcyMetadataInjector.CreateMetadataFrame(StreamTitle);
             _metadataChanged = true;
             _burstBufferWritePos = 0;
@@ -123,27 +145,80 @@ public class MountPointStream
             _oggHeadersCaptured = false;
             _oggCaptureStream.SetLength(0);
         }
+        CancelGrace(grace);
+        if (previous is not null && !ReferenceEquals(previous, stream)) CloseSource(previous);
+        foreach (var client in incompatible) CloseClient(client);
+        return lease;
     }
 
-    public void SetSourceDisconnected()
+    internal bool EndSource(SourceLease lease)
     {
-        StreamingClient[] disconnected;
+        CancellationTokenSource? grace = null;
         lock (_burstLock)
         {
+            if (!ReferenceEquals(_currentSource, lease)) return false;
+            _currentSource = null;
             IsOnline = false;
             SourceConnectedAt = null;
-            disconnected = _clients.Values.ToArray();
-            _clients.Clear();
+            if (!_clients.IsEmpty) _listenerGrace = grace = new CancellationTokenSource();
         }
+        if (grace is not null) _ = ExpireListenersAsync(grace);
+        return true;
+    }
+
+    private async Task ExpireListenersAsync(CancellationTokenSource grace)
+    {
+        try
+        {
+            await Task.Delay(ReconnectGrace, grace.Token).ConfigureAwait(false);
+            StreamingClient[] expired;
+            lock (_burstLock)
+            {
+                if (!ReferenceEquals(_listenerGrace, grace) || _currentSource is not null) return;
+                _listenerGrace = null;
+                expired = _clients.Values.ToArray();
+                _clients.Clear();
+            }
+            foreach (var client in expired) CloseClient(client);
+        }
+        catch (OperationCanceledException) when (grace.IsCancellationRequested) { }
+        finally { grace.Dispose(); }
+    }
+
+    // Explicit server stop or mount removal remains immediate, not a grace wait.
+    public void SetSourceDisconnected()
+    {
+        StreamingClient[] disconnected; NetworkStream? source; CancellationTokenSource? grace;
+        lock (_burstLock)
+        {
+            source = _currentSource?.Stream; _currentSource = null;
+            grace = _listenerGrace; _listenerGrace = null;
+            IsOnline = false; SourceConnectedAt = null;
+            disconnected = _clients.Values.ToArray(); _clients.Clear();
+        }
+        CancelGrace(grace);
+        if (source is not null) CloseSource(source);
         foreach (var client in disconnected) CloseClient(client);
     }
 
-    public void WriteAudioChunk(byte[] buffer, int offset, int count)
+    private static void CancelGrace(CancellationTokenSource? grace)
     {
-        if (count <= 0) return;
+        if (grace is null) return;
+        try { grace.Cancel(); } catch (ObjectDisposedException) { }
+    }
+    private static void CloseSource(NetworkStream source)
+    {
+        try { source.Close(); }
+        catch (Exception ex) when (ex is IOException or SocketException or ObjectDisposedException) { }
+    }
+
+    internal bool WriteAudioChunk(SourceLease lease, byte[] buffer, int offset, int count)
+    {
+        if (count <= 0) return true;
         List<long>? slow = null;
         lock (_burstLock)
         {
+            if (!ReferenceEquals(_currentSource, lease)) return false;
             TotalBytesTransferred += count;
             if (IsOggStream && !_oggHeadersCaptured)
             {
@@ -178,6 +253,7 @@ public class MountPointStream
         }
         if (slow != null)
             foreach (var id in slow) KickClient(id);
+        return true;
     }
 
     private static int TryParseOggHeaderLength(byte[] data)

@@ -291,34 +291,30 @@ public class AudioStreamServer
         var streamGenre = headers.TryGetValue("ice-genre", out var igenre) ? igenre : (headers.TryGetValue("icy-genre", out var ygenre) ? ygenre : mount.StreamGenre);
         var streamDesc = headers.TryGetValue("ice-description", out var idesc) ? idesc : mount.StreamDescription;
 
-        mount.StreamDescription = streamDesc;
-        mount.SetSourceConnected(clientIp, userAgent, contentType, bitrate, streamName, streamGenre);
-        OnSourceConnected?.Invoke(mount.MountPath, clientIp);
-
-        // Send Icecast 2 handshake OK
-        var okResponse = Encoding.Latin1.GetBytes("HTTP/1.0 200 OK\r\nServer: RTSAS/1.0\r\nConnection: Keep-Alive\r\n\r\n");
-        await stream.WriteAsync(okResponse, 0, okResponse.Length, ct);
-
-        // Read audio payload chunks continuously
-        var buffer = new byte[16384];
+        SourceLease? lease = null;
         try
         {
+            // Do not displace a healthy publisher unless the replacement can
+            // receive its authenticated handshake.
+            var okResponse = Encoding.Latin1.GetBytes("HTTP/1.0 200 OK\r\nServer: RTSAS/1.0\r\nConnection: Keep-Alive\r\n\r\n");
+            await stream.WriteAsync(okResponse, 0, okResponse.Length, ct);
+            lease = mount.BeginSource(stream, clientIp, userAgent, contentType, bitrate, streamName, streamGenre, streamDesc);
+            OnSourceConnected?.Invoke(mount.MountPath, clientIp);
+
+            var buffer = new byte[16384];
             while (!ct.IsCancellationRequested)
             {
                 int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct);
-                if (bytesRead <= 0) break;
-
-                mount.WriteAudioChunk(buffer, 0, bytesRead);
+                if (bytesRead <= 0 || !mount.WriteAudioChunk(lease, buffer, 0, bytesRead)) break;
             }
         }
         catch
         {
-            // DJ dropped
+            // A source may disconnect or be superseded by an authenticated replacement.
         }
         finally
         {
-            mount.SetSourceDisconnected();
-            OnSourceDisconnected?.Invoke(mountPath);
+            if (lease is not null && mount.EndSource(lease)) OnSourceDisconnected?.Invoke(mountPath);
         }
     }
 
