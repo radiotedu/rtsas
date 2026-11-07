@@ -116,6 +116,7 @@ public class AudioStreamServerTests
             Assert.Equal(320, status.BitRateKbps);
 
             // 7. Update dynamic title from DJ
+            httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes("source:hackme")));
             await httpClient.GetStringAsync($"http://127.0.0.1:{serverPort}/admin/metadata?mount=/live&mode=updinfo&song=Daft%20Punk%20-%20One%20More%20Time");
             Assert.Equal("Daft Punk - One More Time", mount.StreamTitle);
 

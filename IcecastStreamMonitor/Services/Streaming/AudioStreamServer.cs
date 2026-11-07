@@ -208,6 +208,28 @@ public class AudioStreamServer
                 return;
             }
 
+            // Sensitive management operations require credentials. A source may
+            // update only its own mount metadata using the same credentials as ingest.
+            if (rawUri.StartsWith("/admin/metadata", StringComparison.OrdinalIgnoreCase))
+            {
+                var query = ParseQueryString(rawUri);
+                var mount = query.TryGetValue("mount", out var path) ? GetMount(path) : null;
+                if (!AuthenticateAdmin(headers) && (mount == null || !AuthenticateSource(headers, mount)))
+                {
+                    await SendHttpResponseAsync(stream, 401, "Unauthorized", "text/plain", "Unauthorized\r\n");
+                    return;
+                }
+            }
+            else if (rawUri.StartsWith("/admin/listclients", StringComparison.OrdinalIgnoreCase) ||
+                     rawUri.StartsWith("/admin/killclient", StringComparison.OrdinalIgnoreCase))
+            {
+                if (!AuthenticateAdmin(headers))
+                {
+                    await SendHttpResponseAsync(stream, 401, "Unauthorized", "text/plain", "Unauthorized\r\n");
+                    return;
+                }
+            }
+
             // 4. Admin Dynamic Metadata Update (/admin/metadata)
             if (rawUri.StartsWith("/admin/metadata", StringComparison.OrdinalIgnoreCase))
             {
@@ -316,6 +338,22 @@ public class AudioStreamServer
         {
             if (lease is not null && mount.EndSource(lease)) OnSourceDisconnected?.Invoke(mountPath);
         }
+    }
+
+    private bool AuthenticateAdmin(Dictionary<string, string> headers)
+    {
+        if (string.IsNullOrEmpty(AdminPassword) ||
+            !headers.TryGetValue("Authorization", out var value) ||
+            !value.StartsWith("Basic ", StringComparison.OrdinalIgnoreCase)) return false;
+        try
+        {
+            var credentials = Encoding.UTF8.GetString(Convert.FromBase64String(value.Substring(6).Trim())).Split(':', 2);
+            return credentials.Length == 2 &&
+                   (credentials[0] == AdminUser || credentials[0] == "admin") &&
+                   System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(
+                       Encoding.UTF8.GetBytes(credentials[1]), Encoding.UTF8.GetBytes(AdminPassword));
+        }
+        catch (FormatException) { return false; }
     }
 
     private bool AuthenticateSource(Dictionary<string, string> headers, MountPointStream mount)

@@ -103,6 +103,33 @@ public sealed class SourceHandoffTests
         Assert.EndsWith("';",text);
     }
 
+    [Fact]
+    public async Task ManagementOperationsRequireCredentialsAndMetadataIsMountScoped()
+    {
+        await using var lab = new Loopback();
+        lab.Server.AdminUser = "station-admin";
+        lab.Server.AdminPassword = "fixture-admin-secret";
+        var first = lab.Server.EnsureMount(Mount, "fixture-first-secret");
+        var second = lab.Server.EnsureMount("/other", "fixture-second-secret");
+        static string Auth(string user, string pass) => "Authorization: Basic " + Convert.ToBase64String(Encoding.UTF8.GetBytes(user + ":" + pass)) + "\r\n";
+        async Task<int> Request(string path, string auth = "")
+        {
+            using var c = await lab.OpenAsync("GET " + path + " HTTP/1.0\r\n" + auth + "\r\n");
+            return await Header(c);
+        }
+        Assert.Equal(401, await Request("/admin/metadata?mount=" + Mount + "&song=bad"));
+        Assert.Equal(401, await Request("/admin/listclients?mount=" + Mount));
+        Assert.Equal(401, await Request("/admin/killclient?id=1"));
+        Assert.Equal(401, await Request("/admin/metadata?mount=/other&song=bad", Auth("source", "fixture-first-secret")));
+        Assert.Equal(401, await Request("/admin/listclients?mount=" + Mount, Auth("source", "fixture-first-secret")));
+        Assert.Equal(200, await Request("/admin/metadata?mount=" + Mount + "&song=allowed", Auth("source", "fixture-first-secret")));
+        Assert.Equal("allowed", first.StreamTitle);
+        Assert.NotEqual("bad", second.StreamTitle);
+        Assert.Equal(200, await Request("/admin/listclients?mount=" + Mount, Auth("station-admin", "fixture-admin-secret")));
+        Assert.Equal(200, await Request("/admin/metadata?mount=/other&song=admin", Auth("admin", "fixture-admin-secret")));
+        Assert.Equal("admin", second.StreamTitle);
+    }
+
     private static async Task<string> Metadata(TcpClient c)
     {
         var blocks=(await Exact(c,1))[0];Assert.True(blocks>0);
