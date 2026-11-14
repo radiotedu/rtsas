@@ -9,6 +9,7 @@ namespace IcecastStreamMonitor.Services.Streaming;
 
 public class AudioStreamServer
 {
+    private static readonly TimeSpan SourceIdleTimeout = TimeSpan.FromSeconds(20);
     private TcpListener? _listener;
     private CancellationTokenSource? _cts;
     private readonly ConcurrentDictionary<string, MountPointStream> _mounts = new(StringComparer.OrdinalIgnoreCase);
@@ -292,23 +293,25 @@ public class AudioStreamServer
         var streamDesc = headers.TryGetValue("ice-description", out var idesc) ? idesc : mount.StreamDescription;
 
         mount.StreamDescription = streamDesc;
-        mount.SetSourceConnected(clientIp, userAgent, contentType, bitrate, streamName, streamGenre);
-        OnSourceConnected?.Invoke(mount.MountPath, clientIp);
-
-        // Send Icecast 2 handshake OK
-        var okResponse = Encoding.Latin1.GetBytes("HTTP/1.0 200 OK\r\nServer: RTSAS/1.0\r\nConnection: Keep-Alive\r\n\r\n");
-        await stream.WriteAsync(okResponse, 0, okResponse.Length, ct);
-
-        // Read audio payload chunks continuously
-        var buffer = new byte[16384];
+        using var sourceLifetime = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        var sourceToken = sourceLifetime.Token;
+        var generation = mount.SetSourceConnected(clientIp, userAgent, contentType, bitrate, streamName, streamGenre, sourceLifetime);
         try
         {
-            while (!ct.IsCancellationRequested)
+            OnSourceConnected?.Invoke(mount.MountPath, clientIp);
+            var okResponse = Encoding.Latin1.GetBytes("HTTP/1.0 200 OK\r\nServer: RTSAS/1.0\r\nConnection: Keep-Alive\r\n\r\n");
+            await stream.WriteAsync(okResponse, sourceToken);
+            var buffer = new byte[16384];
+            while (!sourceToken.IsCancellationRequested)
             {
-                int bytesRead = await stream.ReadAsync(buffer, 0, buffer.Length, ct);
+                // Socket ReadTimeout applies to synchronous reads only.
+                // Close an idle source so listeners can detect a dead mount.
+                sourceLifetime.CancelAfter(SourceIdleTimeout);
+                int bytesRead = await stream.ReadAsync(buffer, sourceToken);
+                sourceLifetime.CancelAfter(Timeout.InfiniteTimeSpan);
                 if (bytesRead <= 0) break;
 
-                mount.WriteAudioChunk(buffer, 0, bytesRead);
+                if (!mount.WriteAudioChunk(generation, buffer, 0, bytesRead)) break;
             }
         }
         catch
@@ -317,8 +320,8 @@ public class AudioStreamServer
         }
         finally
         {
-            mount.SetSourceDisconnected();
-            OnSourceDisconnected?.Invoke(mountPath);
+            if (mount.SetSourceDisconnected(generation))
+                OnSourceDisconnected?.Invoke(mount.MountPath);
         }
     }
 
@@ -399,12 +402,27 @@ public class AudioStreamServer
         }
 
         var client = mount.RegisterClient(clientIp, userAgent, supportsIcy, stream);
-        OnClientConnected?.Invoke(mount.MountPath, clientIp);
-
-        // Keep connection open and wait until disconnected or cancelled
+        if (client == null) return;
         try
         {
-            await Task.Delay(Timeout.Infinite, client.Cts.Token);
+            OnClientConnected?.Invoke(mount.MountPath, clientIp);
+            using var stopped = CancellationTokenSource.CreateLinkedTokenSource(ct, client.Cts.Token);
+            // Detect a closed listener even when the source has no audio queued.
+            var peer = WaitForListenerCloseAsync(stream, stopped);
+            try
+            {
+                await foreach (var audio in client.PendingAudio.Reader.ReadAllAsync(stopped.Token))
+                {
+                    using var deadline = CancellationTokenSource.CreateLinkedTokenSource(stopped.Token);
+                    deadline.CancelAfter(TimeSpan.FromSeconds(3));
+                    await mount.WriteClientAudioAsync(client, audio, deadline.Token);
+                }
+            }
+            finally
+            {
+                await stopped.CancelAsync();
+                await peer;
+            }
         }
         catch
         {
@@ -414,6 +432,21 @@ public class AudioStreamServer
         {
             mount.RemoveClient(client.Id);
             OnClientDisconnected?.Invoke(mount.MountPath, clientIp);
+        }
+    }
+
+    private static async Task WaitForListenerCloseAsync(NetworkStream stream, CancellationTokenSource stopped)
+    {
+        var input = new byte[1];
+        try
+        {
+            await stream.ReadExactlyAsync(input, stopped.Token);
+        }
+        catch (IOException) { }
+        catch (OperationCanceledException) { }
+        finally
+        {
+            await stopped.CancelAsync();
         }
     }
 

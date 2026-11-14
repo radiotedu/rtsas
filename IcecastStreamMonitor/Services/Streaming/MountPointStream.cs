@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
+using System.Threading.Channels;
 using IcecastStreamMonitor.Models;
 
 namespace IcecastStreamMonitor.Services.Streaming;
@@ -16,6 +17,7 @@ public class StreamingClient
     public int BytesUntilNextMetadata { get; set; } = IcyMetadataInjector.DefaultMetaInterval;
     public NetworkStream? NetworkStream { get; set; }
     public CancellationTokenSource Cts { get; set; } = new();
+    internal Channel<byte[]> PendingAudio { get; } = Channel.CreateBounded<byte[]>(64);
 }
 
 public class MountPointStream
@@ -26,7 +28,8 @@ public class MountPointStream
     public bool Enabled { get; set; } = true;
 
     // Stream state
-    public bool IsOnline { get; set; }
+    private volatile bool _isOnline;
+    public bool IsOnline => _isOnline;
     public string StreamTitle { get; set; } = "RadioTEDU Live Broadcast";
     public string StreamName { get; set; } = "RadioTEDU Station";
     public string StreamDescription { get; set; } = "High Quality Live Audio Stream";
@@ -46,6 +49,9 @@ public class MountPointStream
     // Listeners
     private readonly ConcurrentDictionary<long, StreamingClient> _clients = new();
     private long _clientCounter = 0;
+    private readonly object _sourceLock = new();
+    private long _sourceGeneration;
+    private CancellationTokenSource? _activeSource;
 
     // 256 KB Burst Buffer for Instant Zero-Lag Playback (~3-6 seconds of audio)
     private readonly byte[] _burstBuffer = new byte[262144];
@@ -94,9 +100,30 @@ public class MountPointStream
         _metadataChanged = true;
     }
 
-    public void SetSourceConnected(string sourceIp, string userAgent, string contentType, int bitrate, string name, string genre)
+    public long SetSourceConnected(string sourceIp, string userAgent, string contentType, int bitrate, string name, string genre, CancellationTokenSource? lifetime = null)
     {
-        IsOnline = true;
+        CancellationTokenSource? previous;
+        long generation;
+        lock (_sourceLock)
+        {
+            previous = _activeSource;
+            _activeSource = lifetime;
+            ResetSource(sourceIp, userAgent, contentType, bitrate, name, genre);
+            _isOnline = true;
+            generation = ++_sourceGeneration;
+        }
+        CancelSource(previous);
+        return generation;
+    }
+
+    private static void CancelSource(CancellationTokenSource? lifetime)
+    {
+        try { lifetime?.Cancel(); }
+        catch (ObjectDisposedException) { }
+    }
+
+    private void ResetSource(string sourceIp, string userAgent, string contentType, int bitrate, string name, string genre)
+    {
         SourceConnectedAt = DateTime.Now;
         SourceIpAddress = sourceIp;
         SourceUserAgent = userAgent;
@@ -131,24 +158,47 @@ public class MountPointStream
         }
     }
 
-    public void SetSourceDisconnected()
+    public bool SetSourceDisconnected(long? generation = null)
     {
-        IsOnline = false;
+        CancellationTokenSource? previous;
+        lock (_sourceLock)
+        {
+            if (generation.HasValue && generation.Value != _sourceGeneration)
+                return false;
+            ++_sourceGeneration;
+            previous = _activeSource;
+            _activeSource = null;
+            DisconnectSource();
+        }
+        CancelSource(previous);
+        return true;
+    }
+
+    private void DisconnectSource()
+    {
+        _isOnline = false;
         SourceConnectedAt = null;
 
         // Disconnect listeners when source drops
         foreach (var client in _clients.Values)
         {
-            try
-            {
-                client.Cts.Cancel();
-            }
-            catch { }
+            KickClient(client.Id);
         }
         _clients.Clear();
     }
 
-    public void WriteAudioChunk(byte[] buffer, int offset, int count)
+    public bool WriteAudioChunk(long generation, byte[] buffer, int offset, int count)
+    {
+        lock (_sourceLock)
+        {
+            if (!_isOnline || generation != _sourceGeneration)
+                return false;
+            PublishAudioChunk(buffer, offset, count);
+            return true;
+        }
+    }
+
+    private void PublishAudioChunk(byte[] buffer, int offset, int count)
     {
         if (count <= 0) return;
 
@@ -200,30 +250,13 @@ public class MountPointStream
             PeakListeners = clients.Count;
         }
 
+        if (clients.Count == 0) return;
+        // The source read buffer is reused. Listener queues share one copy.
+        var audio = buffer.AsSpan(offset, count).ToArray();
         foreach (var client in clients)
         {
-            if (client.Cts.IsCancellationRequested || client.NetworkStream == null)
-            {
+            if (!client.PendingAudio.Writer.TryWrite(audio))
                 KickClient(client.Id);
-                continue;
-            }
-
-            try
-            {
-                if (client.SupportsIcyMetadata)
-                {
-                    SendChunkWithIcyMetadata(client, buffer, offset, count);
-                }
-                else
-                {
-                    client.NetworkStream.Write(buffer, offset, count);
-                    client.BytesSent += count;
-                }
-            }
-            catch
-            {
-                KickClient(client.Id);
-            }
         }
     }
 
@@ -273,7 +306,7 @@ public class MountPointStream
         return 0;
     }
 
-    private void SendChunkWithIcyMetadata(StreamingClient client, byte[] buffer, int offset, int count)
+    private async Task SendChunkWithIcyMetadataAsync(StreamingClient client, byte[] buffer, int offset, int count, CancellationToken ct)
     {
         if (client.NetworkStream == null) return;
 
@@ -285,7 +318,7 @@ public class MountPointStream
             int toSend = Math.Min(bytesRemaining, client.BytesUntilNextMetadata);
             if (toSend > 0)
             {
-                client.NetworkStream.Write(buffer, currentOffset, toSend);
+                await client.NetworkStream.WriteAsync(buffer.AsMemory(currentOffset, toSend), ct);
                 client.BytesSent += toSend;
                 client.BytesUntilNextMetadata -= toSend;
                 bytesRemaining -= toSend;
@@ -296,27 +329,36 @@ public class MountPointStream
             {
                 // Send metadata frame
                 var metaFrame = _metadataChanged ? _currentMetadataFrame : IcyMetadataInjector.CreateEmptyMetadataFrame();
-                client.NetworkStream.Write(metaFrame, 0, metaFrame.Length);
+                await client.NetworkStream.WriteAsync(metaFrame, ct);
                 client.BytesSent += metaFrame.Length;
                 client.BytesUntilNextMetadata = IcyMetadataInjector.DefaultMetaInterval;
             }
         }
     }
 
-    public StreamingClient RegisterClient(string ipAddress, string userAgent, bool supportsIcy, NetworkStream stream)
+    internal async Task WriteClientAudioAsync(StreamingClient client, byte[] audio, CancellationToken ct)
+    {
+        if (client.SupportsIcyMetadata)
+            await SendChunkWithIcyMetadataAsync(client, audio, 0, audio.Length, ct);
+        else if (client.NetworkStream is { } stream)
+        {
+            await stream.WriteAsync(audio, ct);
+            client.BytesSent += audio.Length;
+        }
+    }
+
+    public StreamingClient? RegisterClient(string ipAddress, string userAgent, bool supportsIcy, NetworkStream stream)
+    {
+        lock (_sourceLock)
+        {
+            return _isOnline ? RegisterOnlineClient(ipAddress, userAgent, supportsIcy, stream) : null;
+        }
+    }
+
+    private StreamingClient RegisterOnlineClient(string ipAddress, string userAgent, bool supportsIcy, NetworkStream stream)
     {
         var cleanIp = string.IsNullOrEmpty(ipAddress) ? "127.0.0.1" : ipAddress;
         var cleanUa = string.IsNullOrEmpty(userAgent) ? "Generic Browser / Player" : userAgent;
-
-        // Prune any existing stale/ghost connections from this exact IP & UserAgent on this mount
-        var existingStale = _clients.Values
-            .Where(c => c.IpAddress == cleanIp && c.UserAgent == cleanUa)
-            .ToList();
-
-        foreach (var stale in existingStale)
-        {
-            KickClient(stale.Id);
-        }
 
         var id = Interlocked.Increment(ref _clientCounter);
         var client = new StreamingClient
@@ -352,8 +394,7 @@ public class MountPointStream
             {
                 try
                 {
-                    stream.Write(oggHeader, 0, oggHeader.Length);
-                    client.BytesSent += oggHeader.Length;
+                    client.PendingAudio.Writer.TryWrite(oggHeader);
                 }
                 catch
                 {
@@ -406,15 +447,7 @@ public class MountPointStream
                     int validLength = rawBurst.Length - syncOffset;
                     if (validLength > 0)
                     {
-                        if (client.SupportsIcyMetadata)
-                        {
-                            SendChunkWithIcyMetadata(client, rawBurst, syncOffset, validLength);
-                        }
-                        else
-                        {
-                            stream.Write(rawBurst, syncOffset, validLength);
-                            client.BytesSent += validLength;
-                        }
+                        client.PendingAudio.Writer.TryWrite(rawBurst.AsSpan(syncOffset, validLength).ToArray());
                     }
                 }
                 catch
@@ -431,6 +464,7 @@ public class MountPointStream
     {
         if (_clients.TryRemove(id, out var client))
         {
+            client.PendingAudio.Writer.TryComplete();
             try
             {
                 client.Cts.Cancel();
